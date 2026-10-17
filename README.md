@@ -19,7 +19,10 @@ cd HurricaneBeastPanel
 dotnet build -c Release -o bin\dev
 ```
 
-CPU temperature and power need administrator rights, so the app asks for elevation on start.
+CPU temperature and power need administrator rights, so the app asks for elevation on start. They also need the free [PawnIO](https://pawnio.eu) driver, which the sensor library uses to read the CPU; install it once and restart the app.
+
+## Installer
+`installer\build-installer.ps1` publishes the app and builds `release\HurricaneBeastPanel-Setup-<version>.exe` with [Inno Setup 6](https://jrsoftware.org/isinfo.php). The installer checks for the PawnIO driver and offers to install it (winget), open pawnio.eu, or skip it.
 
 ## Protocol notes
 Packet: `55 AA len(2) cmd payload sum(2)`. Commands: `0x06` info, `0x11` frame (JPEG, 462x1920) and keepalive, `0x03` brightness, `0x01` restart. DTR must be enabled on the serial port.

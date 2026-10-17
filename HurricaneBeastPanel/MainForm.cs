@@ -63,6 +63,7 @@ public sealed class MainForm : UiForm
     readonly MSwitch _flip = new() { Text = "Flip image upside-down" };
     readonly Label _weatherLabel = UiText.Label("Weather location");
     readonly MTextBox _weatherPlace = new() { PlaceholderText = "City, e.g. Paris (empty = detect automatically)" };
+    readonly MButton _pawnBtn = new() { Text = "Install PawnIO driver", Glyph = Glyph.Add, Style = ButtonStyle.Outlined, Visible = false };
     readonly Label _sensorNote = new() { AutoSize = false, ForeColor = Pal.Amber, Font = Pal.Ui(9f), BackColor = Color.Transparent };
 
     // themes
@@ -171,7 +172,7 @@ public sealed class MainForm : UiForm
         _screenCard.Resize += (_, _) => LayoutScreenCard();
 
         // Display card
-        _displayCard.Controls.AddRange(new Control[] { _fahrenheit, _flip, _weatherLabel, _weatherPlace, _sensorNote });
+        _displayCard.Controls.AddRange(new Control[] { _fahrenheit, _flip, _weatherLabel, _weatherPlace, _sensorNote, _pawnBtn });
         _displayCard.Resize += (_, _) => LayoutDisplayCard();
 
         _dash.Controls.AddRange(new Control[] { _previewCard, _liveCard, _screenCard, _displayCard });
@@ -195,7 +196,7 @@ public sealed class MainForm : UiForm
         _liveCard.SetBounds(m, _previewCard.Bottom + gap, leftW, h - previewH - gap);
 
         // Right column: screen over display.
-        int displayH = (int)(262 * dp);
+        int displayH = (int)(310 * dp);
         _screenCard.SetBounds(m + leftW + gap, (int)(4 * dp), rightW, h - displayH - gap);
         _displayCard.SetBounds(_screenCard.Left, _screenCard.Bottom + gap, rightW, displayH);
     }
@@ -262,6 +263,8 @@ public sealed class MainForm : UiForm
         _weatherLabel.Location = new Point(pad, (int)(136 * dp));
         _weatherPlace.SetBounds(pad, (int)(160 * dp), w, (int)(38 * dp));
         _sensorNote.SetBounds(pad, (int)(208 * dp), w, (int)(44 * dp));
+        _pawnBtn.Size = new Size(_pawnBtn.GetPreferredSize(Size.Empty).Width + (int)(12 * dp), (int)(36 * dp));
+        _pawnBtn.Location = new Point(pad, (int)(256 * dp));
     }
 
     void BuildThemesPage()
@@ -373,7 +376,40 @@ public sealed class MainForm : UiForm
             _sensorNote.Text = "Sensor driver problem: " + _engine.SensorError;
         else if (!IsAdmin())
             _sensorNote.Text = "Not running as administrator, so CPU temperature and power will be missing.";
+        else if (!PawnIoSetup.IsInstalled())
+        {
+            _sensorNote.Text = "CPU temperature needs the free PawnIO driver.";
+            _pawnBtn.Visible = true;
+        }
         UpdateThemeCard();
+    }
+
+
+    async Task InstallPawnIoAsync()
+    {
+        bool winget = PawnIoSetup.HasWinget();
+        string why = "PawnIO is a small free driver that lets this app read the CPU temperature and power. It is installed from pawnio.eu and needs administrator rights.";
+        if (!winget)
+        {
+            if (UiDialog.Confirm(this, "PawnIO driver", why + "\n\nThe automatic installer (winget) is not available, so the PawnIO website will open. Install it there, then restart this app.", "Open pawnio.eu"))
+                PawnIoSetup.OpenSite();
+            return;
+        }
+        if (!UiDialog.Confirm(this, "Install PawnIO driver", why + "\n\nInstall it now with the Windows package manager (winget)?", "Install"))
+            return;
+        _pawnBtn.Enabled = false;
+        _pawnBtn.Text = "Installing...";
+        string? error = await PawnIoSetup.InstallAsync();
+        _pawnBtn.Text = "Install PawnIO driver";
+        _pawnBtn.Enabled = true;
+        if (error == null)
+        {
+            _pawnBtn.Visible = false;
+            _sensorNote.Text = "PawnIO installed. Restart this app to see the CPU temperature.";
+            UiDialog.Info(this, "PawnIO installed", "Restart this app (exit it from the tray and open it again) to see the CPU temperature.");
+        }
+        else if (UiDialog.Confirm(this, "Could not install PawnIO", error + "\n\nOpen the PawnIO website to install it by hand?", "Open pawnio.eu"))
+            PawnIoSetup.OpenSite();
     }
 
     static bool IsAdmin()
@@ -449,6 +485,7 @@ public sealed class MainForm : UiForm
         _fps.ValueChanged += (_, _) => { if (!_loading) { _settings.SendFps = _fps.Value; _settings.Save(); } };
         _fahrenheit.CheckedChanged += (_, _) => { if (!_loading) { _settings.Fahrenheit = _fahrenheit.Checked; _settings.Save(); } };
         _flip.CheckedChanged += (_, _) => { if (!_loading) { _settings.Flip180 = _flip.Checked; _settings.Save(); } };
+        _pawnBtn.Click += async (_, _) => await InstallPawnIoAsync();
         _weatherPlace.TextChanged += (_, _) => { if (!_loading) { _settings.WeatherLocation = _weatherPlace.Text.Trim(); _settings.Save(); } };
         _autoConnect.CheckedChanged += (_, _) => { if (!_loading) { _settings.AutoConnect = _autoConnect.Checked; _settings.Save(); } };
         _startMin.CheckedChanged += (_, _) => { if (!_loading) { _settings.StartMinimized = _startMin.Checked; _settings.Save(); } };
