@@ -1,0 +1,239 @@
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Security.Principal;
+
+namespace HurricaneBeastPanel;
+
+static class Program
+{
+    [STAThread]
+    static int Main(string[] args)
+    {
+        ApplicationConfiguration.Initialize();
+
+        // Headless check of the dashboard layout: --render-test <out.png>
+        int rt = Array.IndexOf(args, "--render-test");
+        if (rt >= 0 && rt + 1 < args.Length)
+            return RenderTest(args[rt + 1], rt + 2 < args.Length ? args[rt + 2] : null);
+
+        // --gallery <category: Gauge|Graph|Meter> <out.png>: renders every widget style of that category.
+        int gal = Array.IndexOf(args, "--gallery");
+        if (gal >= 0 && gal + 2 < args.Length && Enum.TryParse<WidgetCategory>(args[gal + 1], true, out var category))
+        {
+            var galleryTheme = DevTools.Gallery(category);
+            using var sensors = new SensorService();
+            sensors.Poll();
+            Thread.Sleep(1200);
+            var snapshot = sensors.Poll();
+            SensorHistory.Push(snapshot);
+            using var image = ThemeRenderer.Render(galleryTheme, snapshot, AppSettings.Load(), galleryTheme.Width, galleryTheme.Height, preview: true);
+            image.Save(args[gal + 2], System.Drawing.Imaging.ImageFormat.Png);
+            return 0;
+        }
+
+        int dg = Array.IndexOf(args, "--date-gallery");
+        if (dg >= 0 && dg + 1 < args.Length)
+        {
+            var dates = DevTools.DateGallery();
+            using var datesImage = ThemeRenderer.Render(dates, new SensorSnapshot(), AppSettings.Load(), dates.Width, dates.Height);
+            datesImage.Save(args[dg + 1], System.Drawing.Imaging.ImageFormat.Png);
+            return 0;
+        }
+
+        // --dialog-test out.png: saves a picture of the message dialogs (no clicking needed to check their layout).
+        int dt = Array.IndexOf(args, "--dialog-test");
+        if (dt >= 0 && dt + 1 < args.Length)
+        {
+            var dialogs = new[]
+            {
+                HurricaneBeastPanel.Ui.UiDialog.Build("Orientation", "Make the new theme vertical (462 x 1920) or horizontal (1920 x 462)?",
+                    new[] { ("Cancel", DialogResult.Cancel, HurricaneBeastPanel.Ui.ButtonStyle.Text), ("Horizontal", DialogResult.No, HurricaneBeastPanel.Ui.ButtonStyle.Outlined), ("Vertical", DialogResult.Yes, HurricaneBeastPanel.Ui.ButtonStyle.Filled) }),
+                HurricaneBeastPanel.Ui.UiDialog.Build("Unsaved changes", "Save your changes to \"Default\" before continuing? Anything you do not save will be lost when you open another theme, and this longer sentence checks that the text wraps onto a second line.",
+                    new[] { ("Cancel", DialogResult.Cancel, HurricaneBeastPanel.Ui.ButtonStyle.Text), ("Don't save", DialogResult.No, HurricaneBeastPanel.Ui.ButtonStyle.Outlined), ("Save", DialogResult.Yes, HurricaneBeastPanel.Ui.ButtonStyle.Filled) }),
+            };
+            int shotNo = 0;
+            foreach (var d in dialogs)
+            {
+                d.Show();
+                Application.DoEvents();
+                using var bmp = new Bitmap(d.Width, d.Height);
+                d.DrawToBitmap(bmp, new Rectangle(0, 0, d.Width, d.Height));
+                bmp.Save(args[dt + 1].Replace(".png", $"_{++shotNo}.png"), System.Drawing.Imaging.ImageFormat.Png);
+                d.Close();
+            }
+            return 0;
+        }
+
+        if (args.Contains("--save-neon"))
+        {
+            ThemeStore.Save(NeonTheme.Create());
+            foreach (var extra in ExtraThemes.All()) ThemeStore.Save(extra);
+            return 0;
+        }
+
+        int mi = Array.IndexOf(args, "--make-icon");
+        if (mi >= 0 && mi + 1 < args.Length)
+        {
+            HurricaneBeastPanel.Ui.AppIcon.WriteIco(args[mi + 1]);
+            return 0;
+        }
+
+        int mk = Array.IndexOf(args, "--make-test-media");
+        if (mk >= 0 && mk + 1 < args.Length)
+        {
+            DevTools.MakeTestMedia(args[mk + 1]);
+            return 0;
+        }
+
+        // Opens only the main window without connecting to the screen: --main-only [--page Themes] [--shot out.png]
+        if (args.Contains("--main-only"))
+        {
+            ThemeStore.EnsureDefault();
+            var mainWindow = new MainForm(false, noAutoStart: true) { TopMost = args.Contains("--shot") };
+            int pg = Array.IndexOf(args, "--page");
+            mainWindow.Shown += (_, _) =>
+            {
+                if (pg >= 0 && pg + 1 < args.Length) mainWindow.ShowPageByName(args[pg + 1]);
+                mainWindow.ShowDemoFrame();
+            };
+            int ms = Array.IndexOf(args, "--shot");
+            if (ms >= 0 && ms + 1 < args.Length)
+            {
+                var shotTimer = new System.Windows.Forms.Timer { Interval = 3000 };
+                shotTimer.Tick += (_, _) =>
+                {
+                    shotTimer.Stop();
+                    using var bmp = new Bitmap(mainWindow.Width, mainWindow.Height);
+                    mainWindow.DrawToBitmap(bmp, new Rectangle(0, 0, mainWindow.Width, mainWindow.Height));
+                    bmp.Save(args[ms + 1], System.Drawing.Imaging.ImageFormat.Png);
+                    Application.Exit();
+                };
+                shotTimer.Start();
+            }
+            Application.Run(mainWindow);
+            return 0;
+        }
+
+        // Opens only the theme editor, without touching the screen (for development).
+        if (args.Contains("--editor-only"))
+        {
+            var s = AppSettings.Load();
+            ThemeStore.EnsureDefault();
+            using var eng = new PanelEngine(s);
+            int tg = Array.IndexOf(args, "--theme-gallery");
+            var startTheme = tg >= 0 && tg + 1 < args.Length && Enum.TryParse<WidgetCategory>(args[tg + 1], true, out var galleryCategory)
+                ? DevTools.Gallery(galleryCategory)
+                : ThemeStore.Load(Array.IndexOf(args, "--theme-name") is int tn && tn >= 0 && tn + 1 < args.Length ? args[tn + 1] : s.ThemeName);
+            Log.Write($"editor-only: theme {startTheme.Name}, {startTheme.Elements.Count} layers, args: {string.Join(" ", args)}");
+            var editor = new ThemeEditorForm(startTheme, eng, s, _ => { }) { TopMost = args.Contains("--shot") };
+            int sel = Array.IndexOf(args, "--select");
+            if (sel >= 0 && sel + 1 < args.Length) editor.Shown += (_, _) => editor.SelectByName(args[sel + 1]);
+            int st = Array.IndexOf(args, "--selftest");
+            if (st >= 0 && st + 1 < args.Length)
+            {
+                editor.Shown += (_, _) =>
+                {
+                    string report;
+                    try { report = editor.SelfTest(); } catch (Exception ex) { report = "SELFTEST CRASHED: " + ex; }
+                    File.WriteAllText(args[st + 1], report);
+                    editor.Close();
+                };
+                editor.SuppressPrompts = true;
+            }
+            int cat = Array.IndexOf(args, "--category");
+            if (cat >= 0 && cat + 1 < args.Length) editor.Shown += (_, _) => editor.ShowCategory(args[cat + 1]);
+            int shot = Array.IndexOf(args, "--shot");
+            if (shot >= 0 && shot + 1 < args.Length)
+            {
+                // Save a picture of the editor itself, then quit.
+                var timer = new System.Windows.Forms.Timer { Interval = 2500 };
+                timer.Tick += (_, _) =>
+                {
+                    timer.Stop();
+                    using var bmp = new Bitmap(editor.Width, editor.Height);
+                    editor.DrawToBitmap(bmp, new Rectangle(0, 0, editor.Width, editor.Height));
+                    bmp.Save(args[shot + 1], System.Drawing.Imaging.ImageFormat.Png);
+                    editor.Close();
+                };
+                timer.Start();
+            }
+            Application.Run(editor);
+            return 0;
+        }
+
+        // CPU temperature and power need admin rights, so relaunch elevated unless told not to.
+        if (!args.Contains("--no-elevate") && !IsAdmin())
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo(Environment.ProcessPath!, string.Join(" ", args))
+                {
+                    UseShellExecute = true,
+                    Verb = "runas",
+                });
+                return 0;
+            }
+            catch (Win32Exception)
+            {
+                // UAC declined: keep running with limited sensors.
+            }
+        }
+
+        using var mutex = new Mutex(true, @"Local\HurricaneBeastPanel.SingleInstance", out bool first);
+        if (!first)
+        {
+            MessageBox.Show("Hurricane Beast Panel is already running (check the tray).",
+                "Hurricane Beast Panel", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return 0;
+        }
+
+        Application.Run(new MainForm(args.Contains("--minimized")));
+        return 0;
+    }
+
+    static bool IsAdmin()
+    {
+        using var id = WindowsIdentity.GetCurrent();
+        return new WindowsPrincipal(id).IsInRole(WindowsBuiltInRole.Administrator);
+    }
+
+    static int RenderTest(string path, string? themeFile)
+    {
+        var settings = AppSettings.Load();
+        using var sensors = new SensorService();
+        sensors.Poll();
+        Thread.Sleep(1500); // load/throughput sensors need two samples
+        var snap = sensors.Poll();
+        ThemeStore.EnsureDefault();
+        // The theme argument is a JSON file path or a saved theme name; --rotate-cw / --rotate-ccw turn the layout first.
+        var theme = themeFile != null && themeFile.StartsWith("@") ? ExtraThemes.ByKey(themeFile[1..]) : themeFile != null && File.Exists(themeFile)
+            ? Theme.FromJson(File.ReadAllText(themeFile))
+            : ThemeStore.Load(themeFile ?? settings.ThemeName);
+        var argv = Environment.GetCommandLineArgs();
+        if (argv.Contains("--rotate-cw")) theme.RotateLayout(true);
+        if (argv.Contains("--rotate-ccw")) theme.RotateLayout(false);
+
+        ThemeRenderer.Render(theme, snap, settings, theme.Width, theme.Height).Dispose(); // starts video decoding
+        Thread.Sleep(900);
+        using var bmp = ThemeRenderer.Render(theme, snap, settings, theme.Width, theme.Height);
+        bmp.Save(path, System.Drawing.Imaging.ImageFormat.Png);
+        Thread.Sleep(450);
+        using (var later = ThemeRenderer.Render(theme, snap, settings, theme.Width, theme.Height))
+            later.Save(path + ".later.png", System.Drawing.Imaging.ImageFormat.Png);
+        // Time a full frame (draw + rotate + JPEG) to see what frame rate this theme can sustain.
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        int quality = 90;
+        const int timedFrames = 15;
+        for (int i = 0; i < timedFrames; i++)
+        {
+            using var timed = ThemeRenderer.Render(theme, snap, settings, theme.Width, theme.Height);
+            timed.RotateFlip(RotateFlipType.Rotate270FlipNone);
+            PanelEngine.EncodeJpeg(timed, 90 * 1024, ref quality);
+        }
+        double msPerFrame = clock.Elapsed.TotalMilliseconds / timedFrames;
+        int size = PanelEngine.EncodeJpeg(bmp, 90 * 1024).Length;
+        File.WriteAllText(path + ".txt", $"ms/frame={msPerFrame:0.0}, jpeg {size} bytes, admin={IsAdmin()}, sensorError={sensors.OpenError}, " +
+            $"cpuTemp={snap.CpuTemp}, gpuTemp={snap.GpuTemp}, cpuLoad={snap.CpuLoad}, ram={snap.RamLoad}");
+        return 0;
+    }
+}
