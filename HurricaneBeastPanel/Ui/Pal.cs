@@ -190,7 +190,7 @@ public class UiForm : Form
     }
 }
 
-public enum IconKind { Gauge, Graph, Meter, Monitor, Text, Shape, Frame, Plate, Overlay, Custom, Home, Themes, Settings, Device }
+public enum IconKind { Gauge, Graph, Meter, Monitor, Text, Shape, Frame, Plate, Overlay, Custom, Home, Themes, Settings, Device, Weather }
 
 /// <summary>Outline category icons drawn as vectors (so they stay sharp at any display scale).</summary>
 public static class Icons
@@ -273,6 +273,16 @@ public static class Icons
                     double a = i * Math.PI / 4;
                     g.DrawLine(pen, P(12 + (float)Math.Cos(a) * 7.5f, 12 + (float)Math.Sin(a) * 7.5f), P(12 + (float)Math.Cos(a) * 10, 12 + (float)Math.Sin(a) * 10));
                 }
+                break;
+            case IconKind.Weather:
+                g.DrawEllipse(pen, box.X + 12 * u, box.Y + 3 * u, 7 * u, 7 * u);
+                g.DrawLine(pen, P(15.5f, 1), P(15.5f, 1.8f));
+                g.DrawLine(pen, P(21.5f, 6.5f), P(22.4f, 6.5f));
+                g.DrawLine(pen, P(20, 2), P(20.6f, 1.4f));
+                g.DrawArc(pen, box.X + 3 * u, box.Y + 11 * u, 7 * u, 7 * u, 90, 180);
+                g.DrawArc(pen, box.X + 6 * u, box.Y + 8 * u, 9 * u, 10 * u, 180, 180);
+                g.DrawArc(pen, box.X + 12 * u, box.Y + 11 * u, 8 * u, 7 * u, 270, 180);
+                g.DrawLine(pen, P(6.5f, 18), P(16, 18));
                 break;
             case IconKind.Device:
                 using (var path = Pal.Round(new RectangleF(box.X + 2 * u, box.Y + 8 * u, 20 * u, 8 * u), 2 * u)) g.DrawPath(pen, path);

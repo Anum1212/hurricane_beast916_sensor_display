@@ -31,6 +31,32 @@ static class Program
             return 0;
         }
 
+        // --weather-gallery <out.png>: every weather picture plus the ready-made weather blocks, using live weather.
+        int wg = Array.IndexOf(args, "--weather-gallery");
+        if (wg >= 0 && wg + 1 < args.Length)
+        {
+            var wt = new Theme { Name = "Weather test", Width = 1920, Height = 924, Background = FillSpec.Solid("#FF0B0E1A") };
+            var items = Library.Categories.First(c => c.Name == "Weather").Items();
+            float x = 10, y = 10;
+            foreach (var item in items)
+            {
+                if (x + item.Width > 1900) { x = 10; y += 250; }
+                foreach (var el in item.Build()) { el.X += x; el.Y += y; wt.Elements.Add(el); }
+                x += item.Width + 20;
+            }
+            var ws = AppSettings.Load();
+            using var wsensors = new SensorService();
+            wsensors.Poll();
+            Thread.Sleep(300);
+            WeatherService.Touch(ws.WeatherLocation);
+            for (int i = 0; i < 40 && WeatherService.Current == null; i++) Thread.Sleep(250);
+            var wsnap = wsensors.Poll();
+            using var wimg = ThemeRenderer.Render(wt, wsnap, ws, wt.Width, wt.Height);
+            wimg.Save(args[wg + 1], System.Drawing.Imaging.ImageFormat.Png);
+            File.WriteAllText(args[wg + 1] + ".txt", wsnap.Weather == null ? "no weather data" : wsnap.Weather.ToString());
+            return 0;
+        }
+
         int dg = Array.IndexOf(args, "--date-gallery");
         if (dg >= 0 && dg + 1 < args.Length)
         {

@@ -21,6 +21,7 @@ public sealed class SensorSnapshot
     public float? GpuHotspot, CpuVoltage, GpuVoltage, NetSentGb, NetRecvGb;
     public string NetIp = "", NetName = "", DisplayRes = "";
     public int ProcessCount, DisplayHz;
+    public WeatherInfo? Weather;
 }
 
 public sealed class DriveSnap
@@ -254,6 +255,7 @@ public sealed class SensorService : IDisposable
         s.RamType = SystemInfo.RamType;
         s.RamSpeedMts = SystemInfo.RamSpeedMts;
         s.Drives = ReadDrives();
+        s.Weather = WeatherService.Current;
 
         // Use the busiest adapter so VPN/virtual adapters are not double counted.
         foreach (var nic in all.Where(h => h.HardwareType == HardwareType.Network))

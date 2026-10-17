@@ -35,6 +35,7 @@ public static class Library
         new LibraryCategory { Name = "Graph", Icon = IconKind.Graph, Hint = "Live history lines and bars", Items = () => WidgetItems(WidgetCategory.Graph, () => new()) },
         new LibraryCategory { Name = "Meter", Icon = IconKind.Meter, Hint = "Bars, tanks and level meters", Items = () => WidgetItems(WidgetCategory.Meter, ClassicMeters) },
         new LibraryCategory { Name = "Monitor", Icon = IconKind.Monitor, Hint = "Ready-made system monitor blocks", Items = MonitorItems },
+        new LibraryCategory { Name = "Weather", Icon = IconKind.Weather, Hint = "Sun, rain and snow that follow the real weather", Items = WeatherItems },
         new LibraryCategory { Name = "Text", Icon = IconKind.Text, Hint = "Text, sensor values, dates and times", Items = TextItems },
         new LibraryCategory { Name = "Shape", Icon = IconKind.Shape, Hint = "Basic shapes and lines", Items = ShapeItems },
         new LibraryCategory { Name = "Frame", Icon = IconKind.Frame, Hint = "Image, GIF or video in a shaped frame", Items = FrameItems },
@@ -52,7 +53,72 @@ public static class Library
         GpuTemp = 61, GpuLoad = 72, GpuPower = 180, GpuClockMhz = 1900, GpuFan = 1450, GpuMemUsedMb = 6200, GpuMemTotalMb = 12288,
         RamLoad = 47, RamUsedGb = 15.2f, RamTotalGb = 32, CaseFan = 900, PumpFan = 2400,
         NetUpBps = 250_000, NetDownBps = 1_800_000,
+        Weather = new WeatherInfo(WeatherKind.PartlyCloudy, true, 21, 19, 24, 14, 55, 12, 20, "Partly cloudy", "London"),
     };
+
+    // ---------- weather ----------
+
+    static List<LibraryItem> WeatherItems()
+    {
+        const string Ink = "#FFFFFFFF", Soft = "#FF9FB0CC";
+        Element Icon(float x, float y, float size, string force = "")
+        {
+            var e = Element.Create(ElementType.Weather, 1, size, size);
+            e.Name = "Weather picture"; e.X = x; e.Y = y; e.Width = size; e.Height = size; e.Bind = force;
+            return e;
+        }
+        Element Txt(string name, string text, float x, float y, float w, float h, float size, string color, HAlign align = HAlign.Left, bool bold = false)
+        {
+            var e = Theme.TextEl(name, text, x, y, w, h, size, bold, color, align);
+            e.FontFamily = "Segoe UI Variable Display";
+            return e;
+        }
+
+        var list = new List<LibraryItem>
+        {
+            new() { Name = "Weather picture", Width = 240, Height = 240, Build = () => new List<Element> { Icon(0, 0, 240) } },
+            new()
+            {
+                Name = "Weather card", Width = 460, Height = 220,
+                Build = () => new List<Element>
+                {
+                    Kit.Plate("Weather card", 0, 0, 460, 220, 26, Kit.Grad("#FF222A44", "#FF141828", 90), "#FF3A4570", 2),
+                    Icon(12, 22, 176),
+                    Txt("Weather temp", "{weather.temp:0}{unit}", 190, 18, 260, 96, 76, Ink, HAlign.Left, true),
+                    Txt("Weather condition", "{weather.condition}", 194, 112, 256, 36, 26, Ink),
+                    Txt("Weather city", "{weather.city}", 194, 148, 256, 28, 20, Soft),
+                    Txt("Weather range", "H {weather.high:0}°   L {weather.low:0}°", 194, 176, 256, 28, 20, Soft),
+                },
+            },
+            new()
+            {
+                Name = "Weather row", Width = 420, Height = 120,
+                Build = () => new List<Element>
+                {
+                    Icon(0, 4, 112),
+                    Txt("Weather temp", "{weather.temp:0}{unit}", 118, 2, 300, 64, 52, Ink, HAlign.Left, true),
+                    Txt("Weather condition", "{weather.condition}", 122, 68, 296, 32, 24, Soft),
+                },
+            },
+            new()
+            {
+                Name = "Weather details", Width = 300, Height = 150,
+                Build = () => new List<Element>
+                {
+                    Txt("Humidity", "Humidity   {weather.humidity:0} %", 0, 0, 300, 34, 22, Ink),
+                    Txt("Wind", "Wind   {weather.wind:0} km/h", 0, 38, 300, 34, 22, Ink),
+                    Txt("Feels like", "Feels like   {weather.feels:0}{unit}", 0, 76, 300, 34, 22, Ink),
+                    Txt("Rain chance", "Rain chance   {weather.rainchance:0} %", 0, 114, 300, 34, 22, Ink),
+                },
+            },
+        };
+        foreach (var (key, label) in WeatherRenderer.Choices.Where(c => c.key.Length > 0))
+        {
+            string k = key, l = label;
+            list.Add(new LibraryItem { Name = l + " (fixed)", Section = "Fixed pictures", Width = 200, Height = 200, Build = () => new List<Element> { Icon(0, 0, 200, k) } });
+        }
+        return list;
+    }
 
     // ---------- widgets ----------
 

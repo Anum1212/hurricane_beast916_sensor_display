@@ -10,6 +10,8 @@ public sealed class AppSettings
     /// <summary>How many times per second the current frame is written to the screen.</summary>
     public int SendFps { get; set; } = 15;
     public bool Fahrenheit { get; set; }
+    /// <summary>City for the weather elements, e.g. "Paris" or "Paris, France". Empty means find it from the internet connection.</summary>
+    public string WeatherLocation { get; set; } = "";
     /// <summary>Turns the image upside-down on the panel (swaps between the two possible rotations).</summary>
     public bool Flip180 { get; set; }
     public string ThemeName { get; set; } = "Default";

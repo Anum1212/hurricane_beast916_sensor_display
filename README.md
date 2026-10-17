@@ -5,6 +5,7 @@ A Windows app that replaces HT PLAYER for Hurricane Beast USB sensor screens (US
 ## Features
 - Live CPU, GPU, RAM, VRAM, fan, network and drive sensors (LibreHardwareMonitor).
 - Theme editor: text, shapes, gradients, glow, charts, gauges, graphs, meters, date/time formats, images, GIFs and MP4 (also as backgrounds).
+- Weather element: sun, moon, clouds, rain, snow, storm and fog pictures that follow the real weather (Open-Meteo), plus `{weather.*}` tokens. Set the city in the main window; empty means detect it from the internet connection.
 - Horizontal (1920x462) and vertical (462x1920) themes.
 - Built-in themes: Default, Neon Dashboard, Tile, Cards, Compact, Smoky (horizontal and vertical variants).
 - Custom fonts: drop `.ttf` or `.otf` files into `%AppData%\HurricaneBeastPanel\fonts`.

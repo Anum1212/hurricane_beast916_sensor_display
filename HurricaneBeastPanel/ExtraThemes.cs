@@ -82,7 +82,7 @@ static class Kit
 /// <summary>Built-in themes modelled on dashboards the user liked. Each is made only from editor elements.</summary>
 public static class ExtraThemes
 {
-    public static readonly string[] Keys = { "tile", "cards", "compact", "smoky", "cardsh", "compacth" };
+    public static readonly string[] Keys = { "tile", "cards", "compact", "smoky", "cardsh", "compacth", "rainbow", "rainbowh", "rainbowl", "rainbowhl" };
 
     /// <summary>
     /// Re-flows a vertical theme into columns on a 1920x462 canvas. Each slice is (y from, y to, x from, x to) of the
@@ -153,6 +153,10 @@ public static class ExtraThemes
 
     public static Theme ByKey(string key) => key switch
     {
+        "rainbow" => RainbowThemes.Build(false, true),
+        "rainbowh" => RainbowThemes.Build(true, true),
+        "rainbowl" => RainbowThemes.Build(false, false),
+        "rainbowhl" => RainbowThemes.Build(true, false),
         "cardsh" => CardsHorizontal(),
         "compacth" => CompactHorizontal(),
         "tile" => TileDashboard(),

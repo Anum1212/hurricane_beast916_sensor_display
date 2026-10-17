@@ -47,7 +47,8 @@ public static class ThemeRenderer
 
     /// <summary>True if the theme contains a GIF or video, so it needs to be redrawn many times a second.</summary>
     public static bool HasAnimation(Theme theme) =>
-        theme.MediaPaths().Any(p => MediaCache.Get(p)?.Animated == true);
+        theme.MediaPaths().Any(p => MediaCache.Get(p)?.Animated == true)
+        || theme.Elements.Any(e => e.Visible && e.Type == ElementType.Weather);
 
     static void DrawElement(Graphics g, Element e, SensorSnapshot snap, AppSettings settings, bool preview)
     {
@@ -63,6 +64,7 @@ public static class ThemeRenderer
             case ElementType.ChartPie: DrawPieChart(g, e, snap, rect); return;
             case ElementType.Media: DrawMediaElement(g, e, rect); return;
             case ElementType.Widget: WidgetRenderer.Draw(g, e, rect, snap, preview); return;
+            case ElementType.Weather: WeatherRenderer.Draw(g, e, rect, snap, settings); return;
         }
 
         // Plain shapes. Optional binding scales the width (a simple bar).

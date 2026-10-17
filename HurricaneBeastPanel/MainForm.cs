@@ -61,6 +61,8 @@ public sealed class MainForm : UiForm
     readonly Card _displayCard = new() { Title = "Display" };
     readonly MSwitch _fahrenheit = new() { Text = "Show temperatures in °F" };
     readonly MSwitch _flip = new() { Text = "Flip image upside-down" };
+    readonly Label _weatherLabel = UiText.Label("Weather location");
+    readonly MTextBox _weatherPlace = new() { PlaceholderText = "City, e.g. Paris (empty = detect automatically)" };
     readonly Label _sensorNote = new() { AutoSize = false, ForeColor = Pal.Amber, Font = Pal.Ui(9f), BackColor = Color.Transparent };
 
     // themes
@@ -169,7 +171,7 @@ public sealed class MainForm : UiForm
         _screenCard.Resize += (_, _) => LayoutScreenCard();
 
         // Display card
-        _displayCard.Controls.AddRange(new Control[] { _fahrenheit, _flip, _sensorNote });
+        _displayCard.Controls.AddRange(new Control[] { _fahrenheit, _flip, _weatherLabel, _weatherPlace, _sensorNote });
         _displayCard.Resize += (_, _) => LayoutDisplayCard();
 
         _dash.Controls.AddRange(new Control[] { _previewCard, _liveCard, _screenCard, _displayCard });
@@ -193,7 +195,7 @@ public sealed class MainForm : UiForm
         _liveCard.SetBounds(m, _previewCard.Bottom + gap, leftW, h - previewH - gap);
 
         // Right column: screen over display.
-        int displayH = (int)(190 * dp);
+        int displayH = (int)(262 * dp);
         _screenCard.SetBounds(m + leftW + gap, (int)(4 * dp), rightW, h - displayH - gap);
         _displayCard.SetBounds(_screenCard.Left, _screenCard.Bottom + gap, rightW, displayH);
     }
@@ -257,7 +259,9 @@ public sealed class MainForm : UiForm
         int pad = (int)(20 * dp), w = _displayCard.Width - pad * 2;
         _fahrenheit.SetBounds(pad, (int)(52 * dp), w, (int)(34 * dp));
         _flip.SetBounds(pad, (int)(92 * dp), w, (int)(34 * dp));
-        _sensorNote.SetBounds(pad, (int)(132 * dp), w, (int)(44 * dp));
+        _weatherLabel.Location = new Point(pad, (int)(136 * dp));
+        _weatherPlace.SetBounds(pad, (int)(160 * dp), w, (int)(38 * dp));
+        _sensorNote.SetBounds(pad, (int)(208 * dp), w, (int)(44 * dp));
     }
 
     void BuildThemesPage()
@@ -361,6 +365,7 @@ public sealed class MainForm : UiForm
         _fps.Value = Math.Clamp(_settings.SendFps, 1, 30);
         _fahrenheit.Checked = _settings.Fahrenheit;
         _flip.Checked = _settings.Flip180;
+        _weatherPlace.Text = _settings.WeatherLocation;
         _autoConnect.Checked = _settings.AutoConnect;
         _startMin.Checked = _settings.StartMinimized;
         _startup.Checked = StartupTask.IsEnabled();
@@ -444,6 +449,7 @@ public sealed class MainForm : UiForm
         _fps.ValueChanged += (_, _) => { if (!_loading) { _settings.SendFps = _fps.Value; _settings.Save(); } };
         _fahrenheit.CheckedChanged += (_, _) => { if (!_loading) { _settings.Fahrenheit = _fahrenheit.Checked; _settings.Save(); } };
         _flip.CheckedChanged += (_, _) => { if (!_loading) { _settings.Flip180 = _flip.Checked; _settings.Save(); } };
+        _weatherPlace.TextChanged += (_, _) => { if (!_loading) { _settings.WeatherLocation = _weatherPlace.Text.Trim(); _settings.Save(); } };
         _autoConnect.CheckedChanged += (_, _) => { if (!_loading) { _settings.AutoConnect = _autoConnect.Checked; _settings.Save(); } };
         _startMin.CheckedChanged += (_, _) => { if (!_loading) { _settings.StartMinimized = _startMin.Checked; _settings.Save(); } };
         _startup.CheckedChanged += (_, _) =>

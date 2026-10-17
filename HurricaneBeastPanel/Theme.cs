@@ -13,6 +13,8 @@ public enum ElementType
     ChartCircular, ChartPie, ChartLinear, Media,
     /// <summary>A gauge, graph or meter from the widget library; <see cref="Element.Style"/> picks which.</summary>
     Widget,
+    /// <summary>A sun / moon / cloud / rain / snow / storm picture that follows the real weather.</summary>
+    Weather,
 }
 
 public enum HAlign { Left, Center, Right }
@@ -156,6 +158,7 @@ public sealed class Element
     [JsonIgnore] public bool IsLine => Type == ElementType.Line;
     [JsonIgnore] public bool IsMedia => Type == ElementType.Media;
     [JsonIgnore] public bool IsWidget => Type == ElementType.Widget;
+    [JsonIgnore] public bool IsWeather => Type == ElementType.Weather;
     [JsonIgnore] public bool SupportsGlow => IsText || IsLine || Type is ElementType.Rectangle or ElementType.Ellipse
         or ElementType.Triangle or ElementType.Diamond or ElementType.Pentagon or ElementType.Hexagon;
     [JsonIgnore] public bool IsChart => Type is ElementType.ChartCircular or ElementType.ChartPie or ElementType.ChartLinear;
@@ -194,6 +197,9 @@ public sealed class Element
                 break;
             case ElementType.Media:
                 e.Width = 400; e.Height = 300; e.FillEnabled = false;
+                break;
+            case ElementType.Weather:
+                e.Width = 240; e.Height = 240; e.FillEnabled = false;
                 break;
             default:
                 e.Width = 200; e.Height = 200;
@@ -399,11 +405,11 @@ public static class ThemeStore
             settings.NeonThemeAdded = true;
             settings.Save();
         }
-        if (settings.ExtraThemesVersion < 2)
+        if (settings.ExtraThemesVersion < 3)
         {
             foreach (var extra in ExtraThemes.All())
                 if (!Exists(extra.Name)) Save(extra);
-            settings.ExtraThemesVersion = 2;
+            settings.ExtraThemesVersion = 3;
             settings.Save();
         }
         if (!settings.VerticalThemeAdded)

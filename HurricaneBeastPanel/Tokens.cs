@@ -75,6 +75,7 @@ public static class Tokens
         new("ram.load", "RAM used %", true),
         new("ram.used", "RAM used GB", true, "0.0"),
         new("ram.total", "RAM total GB", true, "0.0"),
+        new("ram.free", "RAM free GB", true, "0.0"),
         new("ram.usedmb", "RAM used MB", true),
         new("ram.freemb", "RAM free MB", true),
         new("ram.speed", "RAM speed MT/s", true),
@@ -102,6 +103,15 @@ public static class Tokens
         new("net.downmbs", "Download MB/s", true, "0.0"),
         new("net.sentgb", "Total uploaded GB", true, "0.0"),
         new("net.recvgb", "Total downloaded GB", true, "0.0"),
+        new("weather.temp", "Weather: temperature outside", true),
+        new("weather.feels", "Weather: feels-like temperature", true),
+        new("weather.high", "Weather: today's high", true),
+        new("weather.low", "Weather: today's low", true),
+        new("weather.humidity", "Weather: humidity %", true),
+        new("weather.wind", "Weather: wind speed km/h", true),
+        new("weather.rainchance", "Weather: chance of rain today %", true),
+        new("weather.condition", "Weather: description (Sunny, Light rain...)", false),
+        new("weather.city", "Weather: place name", false),
     };
 
     public static readonly string[] NumericKeys = All.Where(t => t.Numeric).Select(t => t.Key).ToArray();
@@ -170,7 +180,10 @@ public static class Tokens
             case "mobo.name": return s.BoardName.Length > 0 ? s.BoardName : "--";
             case "bios.version": return s.BiosVersion.Length > 0 ? s.BiosVersion : "--";
             case "ram.type": return s.RamType.Length > 0 ? s.RamType : "--";
+            case "weather.condition": WeatherService.Touch(settings.WeatherLocation); return s.Weather?.Condition ?? "--";
+            case "weather.city": WeatherService.Touch(settings.WeatherLocation); return s.Weather is { City.Length: > 0 } w ? w.City : "--";
         }
+        if (key.StartsWith("weather.")) WeatherService.Touch(settings.WeatherLocation);
         if (key.StartsWith("drive.") && key.EndsWith(".label"))
         {
             var d = DriveFor(key, s);
@@ -182,7 +195,7 @@ public static class Tokens
         if (info == null) return null;
         float? v = Number(key, s);
         if (v == null) return "--";
-        if (key.EndsWith(".temp") && settings.Fahrenheit) v = v * 9 / 5 + 32;
+        if ((key.EndsWith(".temp") || key is "weather.feels" or "weather.high" or "weather.low") && settings.Fahrenheit) v = v * 9 / 5 + 32;
         return Safe(() => v.Value.ToString(fmt ?? info.DefaultFormat, CultureInfo.InvariantCulture));
     }
 
@@ -213,6 +226,8 @@ public static class Tokens
         };
     }
 
+    static float? Finite(float? v) => v.HasValue && float.IsFinite(v.Value) ? v : null;
+
     /// <summary>Raw value of a numeric token (temperatures in °C).</summary>
     public static float? Number(string key, SensorSnapshot s) => key switch
     {
@@ -241,6 +256,13 @@ public static class Tokens
         "ram.speed" => s.RamSpeedMts > 0 ? s.RamSpeedMts : null,
         "ram.clock" => s.RamSpeedMts > 0 ? s.RamSpeedMts / 2f : null,
         var k when k.StartsWith("drive.") => DriveNumber(k, s),
+        "weather.temp" => Finite(s.Weather?.TempC),
+        "weather.feels" => Finite(s.Weather?.FeelsC),
+        "weather.high" => Finite(s.Weather?.HighC),
+        "weather.low" => Finite(s.Weather?.LowC),
+        "weather.humidity" => Finite(s.Weather?.Humidity),
+        "weather.wind" => Finite(s.Weather?.WindKmh),
+        "weather.rainchance" => Finite(s.Weather?.RainChance),
         "cpu.fan" => s.CpuFan,
         "gpu.temp" => s.GpuTemp,
         "gpu.load" => s.GpuLoad,
@@ -253,6 +275,7 @@ public static class Tokens
         "ram.load" => s.RamLoad,
         "ram.used" => s.RamUsedGb,
         "ram.total" => s.RamTotalGb,
+        "ram.free" => s.RamTotalGb - s.RamUsedGb,
         "pump.fan" => s.PumpFan,
         "case.fan" => s.CaseFan,
         "net.up" => s.NetUpBps * 8 / 1_000_000,

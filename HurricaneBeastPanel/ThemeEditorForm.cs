@@ -482,6 +482,7 @@ public sealed class ThemeEditorForm : UiForm
     {
         ElementType.Text => IconKind.Text,
         ElementType.Media => IconKind.Frame,
+        ElementType.Weather => IconKind.Weather,
         ElementType.Widget => WidgetCatalog.Info(e.Style).Category switch
         {
             WidgetCategory.Gauge => IconKind.Gauge, WidgetCategory.Graph => IconKind.Graph, _ => IconKind.Meter,

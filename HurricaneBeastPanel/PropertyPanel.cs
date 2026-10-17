@@ -79,6 +79,10 @@ public sealed class PropertyPanel : UserControl
     readonly ColorButton _accent = new();
     FlowLayoutPanel _segRow = null!, _samplesRow = null!, _accentRow = null!, _bind2Row = null!, _bind3Row = null!;
 
+    // Weather picture
+    readonly Card _gWeather = Group("Weather picture");
+    readonly MCombo _weatherShow = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 230 };
+
     // Glow
     readonly Card _gGlow = Group("Glow");
     readonly MSlider _glowSize = new() { Minimum = 0, Maximum = 40, Width = 260, Height = 30 };
@@ -194,7 +198,10 @@ public sealed class PropertyPanel : UserControl
 
         Fill(_gGlow, Row(Lbl("Size"), _glowSize), Row(Lbl("Color"), _glowColor));
 
-        foreach (var g in new[] { _gBackground, _gGeneral, _gText, _gMedia, _gWidget, _gShape, _gGlow, _gBind }) _root.Controls.Add(g);
+        _weatherShow.Items.AddRange(WeatherRenderer.Choices.Select(c => (object)c.label).ToArray());
+        Fill(_gWeather, Row(Lbl("Show"), _weatherShow), Lbl("Automatic follows the real weather. The place is set in Settings."));
+
+        foreach (var g in new[] { _gBackground, _gGeneral, _gText, _gMedia, _gWidget, _gWeather, _gShape, _gGlow, _gBind }) _root.Controls.Add(g);
         Controls.Add(_root);
         Wire();
         ShowNothing();
@@ -293,6 +300,10 @@ public sealed class PropertyPanel : UserControl
         Hook(_startAngle, () => _element!.StartAngle = (float)_startAngle.Value);
         Hook(_sweepAngle, () => _element!.SweepAngle = (float)_sweepAngle.Value);
 
+        // Weather picture
+        _weatherShow.SelectedIndexChanged += (_, _) =>
+            Edit(() => _element!.Bind = WeatherRenderer.Choices[Math.Max(_weatherShow.SelectedIndex, 0)].key);
+
         // Glow
         _glowSize.ValueChanged += (_, _) => Edit(() => _element!.GlowSize = _glowSize.Value);
         _glowColor.ColorChanged += (_, _) => Edit(() => _element!.GlowColor = _glowColor.Hex);
@@ -352,7 +363,7 @@ public sealed class PropertyPanel : UserControl
 
     void ShowNothing()
     {
-        foreach (var g in new[] { _gBackground, _gGeneral, _gText, _gMedia, _gWidget, _gShape, _gGlow, _gBind }) g.Visible = false;
+        foreach (var g in new[] { _gBackground, _gGeneral, _gText, _gMedia, _gWidget, _gWeather, _gShape, _gGlow, _gBind }) g.Visible = false;
     }
 
     /// <summary>Edit the theme background.</summary>
@@ -386,8 +397,11 @@ public sealed class PropertyPanel : UserControl
         _gGlow.Visible = e.SupportsGlow;
         _glowSize.Value = (int)Math.Clamp(e.GlowSize, 0, 40);
         _glowColor.Hex = e.GlowColor;
-        _gShape.Visible = !e.IsText;
-        _gBind.Visible = !e.IsText && !e.IsMedia;
+        _gWeather.Visible = e.IsWeather;
+        if (e.IsWeather)
+            _weatherShow.SelectedIndex = Math.Max(Array.FindIndex(WeatherRenderer.Choices, c => c.key == e.Bind), 0);
+        _gShape.Visible = !e.IsText && !e.IsWeather;
+        _gBind.Visible = !e.IsText && !e.IsMedia && !e.IsWeather;
 
         if (e.IsText)
         {
