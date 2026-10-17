@@ -65,10 +65,13 @@ public sealed class PropertyPanel : UserControl
     readonly MCheck _borderOn = new() { Text = "Border", AutoSize = true };
     readonly MNumeric _borderWidth = Num(0, 200, 1);
     readonly ColorButton _borderColor = new();
+    readonly MCheck _border2On = new() { Text = "Inner ring border", AutoSize = true };
+    readonly MNumeric _border2Width = Num(0, 200, 1);
+    readonly ColorButton _border2Color = new();
     readonly MNumeric _radius = Num(0, 500, 1);
     readonly MNumeric _ringThickness = Num(1, 1000, 0);
     readonly MNumeric _startAngle = Num(-360, 360), _sweepAngle = Num(1, 360);
-    FlowLayoutPanel _fillRow = null!, _remainRow = null!, _borderRow = null!, _radiusRow = null!, _ringRow = null!, _angleRow = null!;
+    FlowLayoutPanel _border2Row = null!, _fillRow = null!, _remainRow = null!, _borderRow = null!, _radiusRow = null!, _ringRow = null!, _angleRow = null!;
 
     // Widget (gauge / graph / meter)
     readonly Card _gWidget = Group("Widget");
@@ -111,6 +114,14 @@ public sealed class PropertyPanel : UserControl
     {
         Minimum = min, Maximum = max, DecimalPlaces = decimals, Width = 92, Increment = decimals > 0 ? 0.5m : 1m,
     };
+
+    /// <summary>Rows one under the other, so a long setting never runs past the right edge of the panel.</summary>
+    static FlowLayoutPanel Stack(params Control[] rows)
+    {
+        var column = new FlowLayoutPanel { AutoSize = true, WrapContents = false, FlowDirection = FlowDirection.TopDown, Margin = Padding.Empty, BackColor = Color.Transparent };
+        column.Controls.AddRange(rows);
+        return column;
+    }
 
     static FlowLayoutPanel Row(params Control[] items)
     {
@@ -175,11 +186,12 @@ public sealed class PropertyPanel : UserControl
 
         _fillRow = Row(_fillOn);
         _remainRow = Row(_remainOn);
-        _borderRow = Row(_borderOn, Lbl("Thickness"), _borderWidth, _borderColor);
+        _borderRow = Stack(Row(_borderOn), Row(Lbl("Thickness"), _borderWidth), Row(Lbl("Color"), _borderColor));
+        _border2Row = Stack(Row(_border2On), Row(Lbl("Thickness"), _border2Width), Row(Lbl("Color"), _border2Color));
         _radiusRow = Row(Lbl("Corner radius"), _radius);
         _ringRow = Row(Lbl("Ring thickness"), _ringThickness);
-        _angleRow = Row(Lbl("Start angle"), _startAngle, Lbl("Sweep"), _sweepAngle);
-        Fill(_gShape, _fillRow, _shapeFill, _remainRow, _remainFill, _ringRow, _angleRow, _borderRow, _radiusRow);
+        _angleRow = Stack(Row(Lbl("Start angle"), _startAngle), Row(Lbl("Sweep"), _sweepAngle));
+        Fill(_gShape, _fillRow, _shapeFill, _remainRow, _remainFill, _ringRow, _angleRow, _borderRow, _border2Row, _radiusRow);
 
         _style.Items.AddRange(WidgetCatalog.All.Select(i => (object)$"{i.Category}: {i.Name}").ToArray());
         _segRow = Row(Lbl("Segments / ticks / rows"), _segments);
@@ -293,6 +305,13 @@ public sealed class PropertyPanel : UserControl
             _element!.BorderEnabled = _borderOn.Checked;
             _borderWidth.Enabled = _borderColor.Enabled = _borderOn.Checked;
         });
+        HookCheck(_border2On, () =>
+        {
+            _element!.Border2Enabled = _border2On.Checked;
+            _border2Width.Enabled = _border2Color.Enabled = _border2On.Checked;
+        });
+        Hook(_border2Width, () => _element!.Border2Width = (float)_border2Width.Value);
+        _border2Color.ColorChanged += (_, _) => Edit(() => _element!.Border2Color = _border2Color.Hex);
         Hook(_borderWidth, () => _element!.BorderWidth = (float)_borderWidth.Value);
         _borderColor.ColorChanged += (_, _) => Edit(() => _element!.BorderColor = _borderColor.Hex);
         Hook(_radius, () => _element!.CornerRadius = (float)_radius.Value);
@@ -461,6 +480,13 @@ public sealed class PropertyPanel : UserControl
             _borderWidth.Value = (decimal)Math.Clamp(e.BorderWidth, 0, 200);
             _borderColor.Hex = e.BorderColor;
             _borderWidth.Enabled = _borderColor.Enabled = _borderOn.Checked;
+            bool dual = widget && e.Style == WidgetStyle.DualConcentric;
+            _borderOn.Text = dual ? "Outer ring border" : "Border";
+            _border2Row.Visible = dual;
+            _border2On.Checked = e.Border2Enabled;
+            _border2Width.Value = (decimal)Math.Clamp(e.Border2Width, 0, 200);
+            _border2Color.Hex = e.Border2Color;
+            _border2Width.Enabled = _border2Color.Enabled = _border2On.Checked;
             _radius.Value = (decimal)Math.Clamp(e.CornerRadius, 0, 500);
             _ringThickness.Value = (decimal)Math.Clamp(e.RingThickness, 1, 1000);
             _startAngle.Value = (decimal)Math.Clamp(e.StartAngle, -360, 360);

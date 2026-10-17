@@ -50,30 +50,47 @@ public sealed class FillSpec
     /// <summary>Direction of linear gradients in degrees (0 = left to right, 90 = top to bottom).</summary>
     public float Angle { get; set; }
 
+    /// <summary>
+    /// Any number of gradient colours (2 to <see cref="MaxStops"/>), spread evenly. When set it replaces Color1-3; older
+    /// themes only have Color1-3 and keep working.
+    /// </summary>
+    public List<string>? Stops { get; set; }
+
+    public const int MaxStops = 10;
+
+    /// <summary>The gradient colours in order (at least one).</summary>
+    public List<Color> Colors()
+    {
+        if (Stops is { Count: > 0 }) return Stops.Select(ColorUtil.Parse).ToList();
+        var list = new List<Color> { ColorUtil.Parse(Color1), ColorUtil.Parse(Color2) };
+        if (ColorCount >= 3) list.Add(ColorUtil.Parse(Color3));
+        return list;
+    }
+
     public static FillSpec Solid(string color) => new() { Type = FillType.Solid, Color1 = color };
 
-    public FillSpec Clone() => (FillSpec)MemberwiseClone();
+    public FillSpec Clone()
+    {
+        var copy = (FillSpec)MemberwiseClone();
+        if (Stops != null) copy.Stops = new List<string>(Stops);
+        return copy;
+    }
 
     /// <summary>Builds a brush for the given bounds. A radial gradient fits the bounds' ellipse when
     /// <paramref name="inscribed"/> is set, otherwise it reaches the corners. Caller disposes.</summary>
     public Brush CreateBrush(RectangleF r, bool inscribed = false)
     {
-        Color c1 = ColorUtil.Parse(Color1), c2 = ColorUtil.Parse(Color2), c3 = ColorUtil.Parse(Color3);
-        bool three = ColorCount >= 3;
+        var colors = Colors();
+        if (colors.Count == 1) colors.Add(colors[0]);
         if (Type == FillType.Solid || r.Width < 1 || r.Height < 1)
-            return new SolidBrush(c1);
+            return new SolidBrush(colors[0]);
+        float[] positions = Enumerable.Range(0, colors.Count).Select(i => i / (float)(colors.Count - 1)).ToArray();
 
         if (Type == FillType.Linear)
         {
-            var lb = new LinearGradientBrush(r, c1, three ? c3 : c2, Angle, false);
-            if (three)
-            {
-                lb.InterpolationColors = new ColorBlend
-                {
-                    Colors = new[] { c1, c2, c3 },
-                    Positions = new[] { 0f, 0.5f, 1f },
-                };
-            }
+            var lb = new LinearGradientBrush(r, colors[0], colors[^1], Angle, false);
+            if (colors.Count > 2)
+                lb.InterpolationColors = new ColorBlend { Colors = colors.ToArray(), Positions = positions };
             lb.WrapMode = WrapMode.TileFlipXY;
             return lb;
         }
@@ -85,9 +102,8 @@ public sealed class FillSpec
         path.AddEllipse(cx - rx, cy - ry, rx * 2, ry * 2);
         var pg = new PathGradientBrush(path) { CenterPoint = new PointF(cx, cy) };
         // PathGradientBrush positions run from the edge (0) to the centre (1).
-        pg.InterpolationColors = three
-            ? new ColorBlend { Colors = new[] { c3, c2, c1 }, Positions = new[] { 0f, 0.5f, 1f } }
-            : new ColorBlend { Colors = new[] { c2, c1 }, Positions = new[] { 0f, 1f } };
+        var reversed = colors.AsEnumerable().Reverse().ToArray();
+        pg.InterpolationColors = new ColorBlend { Colors = reversed, Positions = positions };
         return pg;
     }
 }
@@ -118,6 +134,10 @@ public sealed class Element
     public bool BorderEnabled { get; set; }
     public float BorderWidth { get; set; } = 4;
     public string BorderColor { get; set; } = "#FFFFFFFF";
+    // Second border, used by the inner ring of the "Dual concentric" gauge (the first border is the outer ring).
+    public bool Border2Enabled { get; set; }
+    public float Border2Width { get; set; } = 4;
+    public string Border2Color { get; set; } = "#FFFFFFFF";
     public float CornerRadius { get; set; }
 
     // Live value: charts show it, shapes use it to scale their width (a bar).

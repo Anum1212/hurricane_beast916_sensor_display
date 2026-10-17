@@ -345,7 +345,15 @@ public class Card : Panel
     public string Title
     {
         get => _title;
-        set { _title = value; Padding = TitlePadding(); Invalidate(); }
+        set
+        {
+            // Only reset the padding when a title appears or disappears: changing the text of an existing title must not
+            // undo the DPI scaling already applied to the padding (that made the title overlap the first row).
+            bool changed = string.IsNullOrEmpty(_title) != string.IsNullOrEmpty(value);
+            _title = value ?? "";
+            if (changed) Padding = TitlePadding();
+            Invalidate();
+        }
     }
 
     /// <summary>Same as <see cref="Title"/>, so code written for a GroupBox keeps working.</summary>

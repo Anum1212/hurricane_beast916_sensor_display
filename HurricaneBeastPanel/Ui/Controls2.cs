@@ -11,8 +11,8 @@ public class MTextBox : Control
     public MTextBox()
     {
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint
-            | ControlStyles.ResizeRedraw | ControlStyles.ContainerControl, true);
-        BackColor = Pal.SurfaceHi;
+            | ControlStyles.ResizeRedraw | ControlStyles.ContainerControl | ControlStyles.SupportsTransparentBackColor, true);
+        BackColor = Color.Transparent; // the rounded fill is painted in OnPaint; a solid back colour showed as a square halo
         Font = Pal.Ui(9.5f);
         _tb.Font = Font;
         Controls.Add(_tb);
@@ -98,8 +98,8 @@ public class MNumeric : Control
     public MNumeric()
     {
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint
-            | ControlStyles.ResizeRedraw | ControlStyles.ContainerControl, true);
-        BackColor = Pal.SurfaceHi;
+            | ControlStyles.ResizeRedraw | ControlStyles.ContainerControl | ControlStyles.SupportsTransparentBackColor, true);
+        BackColor = Color.Transparent;
         Font = Pal.Ui(9.5f);
         _tb.Font = Font;
         Controls.Add(_tb);
@@ -219,8 +219,8 @@ public class MCombo : Control
     public MCombo()
     {
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint
-            | ControlStyles.ResizeRedraw | ControlStyles.Selectable, true);
-        BackColor = Pal.SurfaceHi;
+            | ControlStyles.ResizeRedraw | ControlStyles.Selectable | ControlStyles.SupportsTransparentBackColor, true);
+        BackColor = Color.Transparent;
         Font = Pal.Ui(9.5f);
         Cursor = Cursors.Hand;
         TabStop = true;
@@ -258,8 +258,19 @@ public class MCombo : Control
             BackColor = Pal.SurfaceHi, Renderer = new PopupRenderer(),
         };
         dd.Items.Add(host);
-        list.Chosen += i => { dd.Close(); SelectedIndex = i; };
-        dd.Closed += (_, _) => { _open = false; Invalidate(); dd.Dispose(); };
+        // Closing and disposing the popup, and the change handlers that rebuild other controls, must not run inside the
+        // popup's own mouse event: that is what raised "Cannot access a disposed object: ToolStripDropDown".
+        list.Chosen += i =>
+        {
+            dd.Close();
+            if (IsHandleCreated && !IsDisposed) BeginInvoke(new Action(() => { if (!IsDisposed) SelectedIndex = i; }));
+        };
+        dd.Closed += (_, _) =>
+        {
+            _open = false;
+            Invalidate();
+            if (IsHandleCreated && !IsDisposed) BeginInvoke(new Action(dd.Dispose)); else dd.Dispose();
+        };
         _open = true;
         Invalidate();
         dd.Show(this, new Point(0, Height + (int)(3 * dp)));
@@ -338,7 +349,7 @@ sealed class PopupList : Control
         }
         // Start scrolled so the current item is visible.
         int idx = _view.IndexOf(current);
-        if (idx > visible - 2) _scroll = (idx - 3) * Row;
+        if (idx > visible - 2) _scroll = Math.Clamp((idx - 3) * Row, 0, MaxScroll); // a short list must not scroll (that left a blank gap on top)
         LayoutSearch();
     }
 

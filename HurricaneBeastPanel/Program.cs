@@ -57,6 +57,19 @@ static class Program
             return 0;
         }
 
+        // --picker-test <out.png>: picture of the colour picker dialog.
+        int pk = Array.IndexOf(args, "--picker-test");
+        if (pk >= 0 && pk + 1 < args.Length)
+        {
+            using var picker = ColorPickerDialog.CreateForTest(Color.FromArgb(200, 88, 35, 205));
+            picker.Show();
+            Application.DoEvents();
+            using var pbmp = new Bitmap(picker.Width, picker.Height);
+            picker.DrawToBitmap(pbmp, new Rectangle(0, 0, picker.Width, picker.Height));
+            pbmp.Save(args[pk + 1], System.Drawing.Imaging.ImageFormat.Png);
+            return 0;
+        }
+
         int dg = Array.IndexOf(args, "--date-gallery");
         if (dg >= 0 && dg + 1 < args.Length)
         {

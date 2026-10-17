@@ -91,6 +91,12 @@ static partial class WidgetRenderer
         return new PointF((float)(c.X + radius * Math.Cos(a)), (float)(c.Y + radius * Math.Sin(a)));
     }
 
+    static void Outline(Ctx c, GraphicsPath path, float width, string color)
+    {
+        using var pen = new Pen(ColorUtil.Parse(color), width) { LineJoin = LineJoin.Round };
+        c.G.DrawPath(pen, path);
+    }
+
     static void Border(Ctx c, GraphicsPath path)
     {
         if (!c.E.BorderEnabled || c.E.BorderWidth <= 0) return;
@@ -182,10 +188,25 @@ static partial class WidgetRenderer
         return (outer, RectangleF.Inflate(outer, -th / 2, -th / 2), th);
     }
 
-    static void RingBorder(Ctx c, RectangleF outer, float th)
+    /// <summary>Outline around an arc gauge. With round ends the outline follows the rounded caps, so it hugs the arc instead of cutting across it.</summary>
+    static void RingBorder(Ctx c, RectangleF outer, float th, bool round = false, bool inner = false)
     {
-        using var path = ThemeRenderer.RingSector(outer, RectangleF.Inflate(outer, -th, -th), c.E.StartAngle, Math.Clamp(c.E.SweepAngle, 1, 360));
-        Border(c, path);
+        bool on = inner ? c.E.Border2Enabled : c.E.BorderEnabled;
+        float width = inner ? c.E.Border2Width : c.E.BorderWidth;
+        string color = inner ? c.E.Border2Color : c.E.BorderColor;
+        if (!on || width <= 0) return;
+        float sweep = Math.Clamp(c.E.SweepAngle, 1, 360);
+        if (round && sweep < 359.9f)
+        {
+            using var arc = new GraphicsPath();
+            arc.AddArc(RectangleF.Inflate(outer, -th / 2, -th / 2), c.E.StartAngle, sweep);
+            using var stroke = new Pen(Color.Black, th) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+            arc.Widen(stroke);
+            Outline(c, arc, width, color);
+            return;
+        }
+        using var path = ThemeRenderer.RingSector(outer, RectangleF.Inflate(outer, -th, -th), c.E.StartAngle, sweep);
+        Outline(c, path, width, color);
     }
 
     // ---------- gauges ----------
@@ -254,7 +275,7 @@ static partial class WidgetRenderer
             Dot(c.G, p, Math.Max(th * 1.1f, 5), c.Main);
             Dot(c.G, p, Math.Max(th * 0.45f, 2.5f), Color.FromArgb(235, 255, 255, 255));
         }
-        RingBorder(c, outer, th);
+        RingBorder(c, outer, th, round);
     }
 
     static void SegmentedGauge(Ctx c, bool round, float thinScale, float gapFraction)
@@ -273,7 +294,7 @@ static partial class WidgetRenderer
             bool lit = (i + 0.5f) / count <= c.F;
             Arc(c.G, box, e.StartAngle + i * step + gap / 2, Math.Max(step - gap, 0.5f), lit ? mb : tb, th, round);
         }
-        RingBorder(c, outer, th);
+        RingBorder(c, outer, th, round);
     }
 
     static void DualConcentric(Ctx c)
@@ -295,7 +316,8 @@ static partial class WidgetRenderer
             Arc(c.G, box, e.StartAngle, sweep * c.F, mb, th, true);
         using (var ab = new SolidBrush(c.Accent))
             Arc(c.G, box2, e.StartAngle, sweep * c.F2, ab, th2, true);
-        RingBorder(c, outer, th);
+        RingBorder(c, outer, th, true);
+        RingBorder(c, inner, th2, true, inner: true);
     }
 
     static void Speedometer(Ctx c)
@@ -515,7 +537,7 @@ static partial class WidgetRenderer
         float ang = e.StartAngle + sweep * c.F;
         Line(c.G, ctr, Polar(ctr, r * 0.72f, ang), Color.FromArgb(235, 240, 244, 250), 3f, round: true);
         Dot(c.G, ctr, r * 0.07f, c.Accent);
-        RingBorder(c, outer, th);
+        RingBorder(c, outer, th, true);
     }
 
     static void DottedRing(Ctx c)

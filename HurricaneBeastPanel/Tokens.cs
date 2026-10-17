@@ -11,7 +11,7 @@ public sealed record TokenInfo(string Key, string Description, bool Numeric, str
 /// </summary>
 public static class Tokens
 {
-    public static readonly TokenInfo[] All =
+    static readonly TokenInfo[] Base =
     {
         new("time", "Time (format e.g. HH:mm:ss)", false),
         new("date", "Date (format e.g. dd/MM/yyyy)", false),
@@ -85,16 +85,6 @@ public static class Tokens
         new("bios.version", "BIOS version", false),
         new("mobo.temp", "Motherboard temperature", true),
         new("pch.temp", "Chipset (PCH) temperature", true),
-        new("drive.c.used", "Drive C used %", true),
-        new("drive.d.used", "Drive D used %", true),
-        new("drive.e.used", "Drive E used %", true),
-        new("drive.f.used", "Drive F used %", true),
-        new("drive.g.used", "Drive G used %", true),
-        new("drive.c.freegb", "Drive C free GB", true),
-        new("drive.d.freegb", "Drive D free GB", true),
-        new("drive.e.freegb", "Drive E free GB", true),
-        new("drive.g.freegb", "Drive G free GB", true),
-        new("drive.c.label", "Drive C name (also .totalgb, .usedgb; any letter)", false),
         new("pump.fan", "Pump RPM", true),
         new("case.fan", "Case fan RPM", true),
         new("net.up", "Upload Mbps", true, "0.0"),
@@ -113,6 +103,35 @@ public static class Tokens
         new("weather.condition", "Weather: description (Sunny, Light rain...)", false),
         new("weather.city", "Weather: place name", false),
     };
+
+    /// <summary>Every token the editor offers. The drive tokens are made for the drives this PC really has (C, D, E, G, M, ...).</summary>
+    public static readonly TokenInfo[] All = Base.Concat(DriveTokens()).ToArray();
+
+    static IEnumerable<TokenInfo> DriveTokens()
+    {
+        var found = new List<(char letter, string label)>();
+        try
+        {
+            foreach (var d in DriveInfo.GetDrives())
+            {
+                if (d.DriveType is not (DriveType.Fixed or DriveType.Removable) || !d.IsReady) continue;
+                found.Add((char.ToLowerInvariant(d.Name[0]), d.VolumeLabel));
+            }
+        }
+        catch { /* fall back to the usual letters below */ }
+        if (found.Count == 0) found.AddRange("cdeg".Select(c => (c, "")));
+
+        foreach (var (letter, label) in found.OrderBy(f => f.letter))
+        {
+            string up = char.ToUpperInvariant(letter).ToString();
+            string name = label.Length > 0 ? $"Drive {up}: ({label})" : $"Drive {up}:";
+            yield return new TokenInfo($"drive.{letter}.used", $"{name} used %", true);
+            yield return new TokenInfo($"drive.{letter}.freegb", $"{name} free GB", true);
+            yield return new TokenInfo($"drive.{letter}.usedgb", $"{name} used GB", true);
+            yield return new TokenInfo($"drive.{letter}.totalgb", $"{name} total GB", true);
+            yield return new TokenInfo($"drive.{letter}.label", $"{name} name", false);
+        }
+    }
 
     public static readonly string[] NumericKeys = All.Where(t => t.Numeric).Select(t => t.Key).ToArray();
 

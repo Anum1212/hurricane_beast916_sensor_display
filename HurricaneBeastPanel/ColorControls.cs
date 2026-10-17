@@ -80,7 +80,7 @@ sealed class SwatchGrid : Control
     }
 }
 
-/// <summary>Colour picker with R/G/B/A sliders, hex entry and preset swatches. Reports changes live while open.</summary>
+/// <summary>Colour picker: hue ring with a saturation/brightness disc, opacity bar, hex and R/G/B boxes, eyedropper and presets. Reports changes live while open.</summary>
 public sealed class ColorPickerDialog : UiForm
 {
     static readonly string[] Presets =
@@ -90,15 +90,17 @@ public sealed class ColorPickerDialog : UiForm
         "#FFF4A261", "#FF8338EC", "#FF06D6A0", "#FFFFBE0B", "#FF00D2D2", "#FF2BF28A", "#FFFF9F1C", "#FFB5179E", "#FF4361EE", "#FF4CC9F0", "#FFF72585", "#FF7209B7",
     };
 
-    readonly MSlider _r = Slider(), _g = Slider(), _b = Slider(), _a = Slider();
-    readonly MTextBox _hex = new() { Width = 120, Height = 36 };
-    readonly Panel _swatch = new() { Width = 120, Height = 56 };
+    readonly ColorWheel _wheel = new() { Location = new Point(70, 22), Size = new Size(300, 300) };
+    readonly AlphaBar _alphaBar = new() { Location = new Point(20, 334), Size = new Size(400, 28) };
+    readonly EyedropperButton _pipette = new() { Location = new Point(380, 22), Size = new Size(40, 40) };
+    readonly MTextBox _hex = new() { Width = 118, Height = 38 };
+    readonly MNumeric _r = Channel(), _g = Channel(), _b = Channel();
     readonly Action<Color>? _live;
     bool _updating;
 
     public Color SelectedColor { get; private set; }
 
-    static MSlider Slider() => new() { Minimum = 0, Maximum = 255, Width = 330, Height = 30, ShowValue = true };
+    static MNumeric Channel() => new() { Minimum = 0, Maximum = 255, DecimalPlaces = 0, Width = 80, Height = 38 };
 
     ColorPickerDialog(Color initial, Action<Color>? live)
     {
@@ -110,63 +112,58 @@ public sealed class ColorPickerDialog : UiForm
         MinimizeBox = false;
         ShowInTaskbar = false;
         StartPosition = FormStartPosition.CenterParent;
-        ClientSize = new Size(440, 470);
+        ClientSize = new Size(440, 650);
 
-        _swatch.Location = new Point(20, 20);
-        _swatch.Paint += (_, e) =>
+        Controls.Add(_wheel);
+        Controls.Add(_pipette);
+        Controls.Add(_alphaBar);
+
+        _hex.Location = new Point(20, 380);
+        _r.Location = new Point(150, 380);
+        _g.Location = new Point(238, 380);
+        _b.Location = new Point(326, 380);
+        Controls.AddRange(new Control[] { _hex, _r, _g, _b });
+
+        var captions = new[] { ("#", 20, 118), ("R", 150, 80), ("G", 238, 80), ("B", 326, 80) };
+        foreach (var (text, x, w) in captions)
         {
-            var g = e.Graphics;
-            Pal.Quality(g);
-            var r = new RectangleF(0, 0, _swatch.Width - 1, _swatch.Height - 1);
-            using var path = Pal.Round(r, 12 * Pal.Dp(this));
-            var state = g.Save();
-            g.SetClip(path, CombineMode.Intersect);
-            UiText.Checker(g, r);
-            using (var b = new SolidBrush(SelectedColor)) g.FillRectangle(b, r);
-            g.Restore(state);
-            using var pen = new Pen(Pal.Outline);
-            g.DrawPath(pen, path);
-        };
-        Controls.Add(_swatch);
-
-        var hexLabel = UiText.Label("HEX", points: 8.5f);
-        hexLabel.Location = new Point(160, 22);
-        Controls.Add(hexLabel);
-        _hex.Location = new Point(160, 44);
-        Controls.Add(_hex);
-
-        string[] names = { "R", "G", "B", "A" };
-        var sliders = new[] { _r, _g, _b, _a };
-        for (int i = 0; i < 4; i++)
-        {
-            var l = UiText.Label(names[i], dim: false);
-            l.Location = new Point(22, 98 + i * 40 + 3);
-            sliders[i].Location = new Point(48, 98 + i * 40);
+            var l = UiText.Label(text, dim: false);
+            l.AutoSize = false;
+            l.TextAlign = ContentAlignment.MiddleCenter;
+            l.SetBounds(x, 422, w, 24);
             Controls.Add(l);
-            Controls.Add(sliders[i]);
-            sliders[i].ValueChanged += (_, _) => { if (!_updating) SetColor(Color.FromArgb(_a.Value, _r.Value, _g.Value, _b.Value)); };
         }
 
         var presetsLabel = UiText.Label("PRESETS", points: 8.5f);
-        presetsLabel.Location = new Point(22, 266);
+        presetsLabel.Location = new Point(22, 458);
         Controls.Add(presetsLabel);
-        var grid = new SwatchGrid(Presets) { Location = new Point(20, 292), Size = new Size(400, 100) };
+        var grid = new SwatchGrid(Presets) { Location = new Point(20, 482), Size = new Size(400, 100) };
         grid.Picked += c => SetColor(c);
         Controls.Add(grid);
 
-        var ok = new MButton { Text = "OK", Style = ButtonStyle.Filled, Location = new Point(236, 416), Size = new Size(90, 38) };
-        var cancel = new MButton { Text = "Cancel", Style = ButtonStyle.Text, Location = new Point(334, 416), Size = new Size(86, 38) };
+        var ok = new MButton { Text = "OK", Style = ButtonStyle.Filled, Location = new Point(236, 598), Size = new Size(90, 38) };
+        var cancel = new MButton { Text = "Cancel", Style = ButtonStyle.Text, Location = new Point(334, 598), Size = new Size(86, 38) };
         Controls.Add(ok);
         Controls.Add(cancel);
         ok.Click += (_, _) => DialogResult = DialogResult.OK;
         cancel.Click += (_, _) => DialogResult = DialogResult.Cancel;
 
+        _wheel.ColorChanged += (_, _) => SetColor(Hsv.ToColor(_wheel.Hue, _wheel.Saturation, _wheel.Value, SelectedColor.A), fromWheel: true);
+        _alphaBar.AlphaChanged += (_, _) => SetColor(Color.FromArgb(_alphaBar.Alpha, SelectedColor), fromWheel: true);
+        foreach (var n in new[] { _r, _g, _b })
+            n.ValueChanged += (_, _) => { if (!_updating) SetColor(Color.FromArgb(SelectedColor.A, (int)_r.Value, (int)_g.Value, (int)_b.Value)); };
         _hex.TextChanged += (_, _) =>
         {
             if (_updating) return;
             string h = _hex.Text.Trim().TrimStart('#');
-            if (h.Length is 6 or 8) SetColor(ColorUtil.Parse(h), fromHex: true);
+            if (h.Length is 6 or 8 && h.All(Uri.IsHexDigit)) SetColor(ColorUtil.Parse(h), fromHex: true);
         };
+        _pipette.Click += (_, _) =>
+        {
+            using var picker = new ScreenPickerForm();
+            if (picker.ShowDialog(this) == DialogResult.OK) SetColor(Color.FromArgb(SelectedColor.A, picker.Result));
+        };
+
         SetColor(initial);
         DpiHelper.Fit(this);
     }
@@ -177,16 +174,28 @@ public sealed class ColorPickerDialog : UiForm
         return base.ProcessCmdKey(ref msg, keyData);
     }
 
-    void SetColor(Color c, bool fromHex = false)
+    static string Format(Color c) => c.A == 255 ? $"#{c.R:X2}{c.G:X2}{c.B:X2}" : ColorUtil.ToHex(c);
+
+    void SetColor(Color c, bool fromWheel = false, bool fromHex = false)
     {
         _updating = true;
         SelectedColor = c;
-        _r.Value = c.R; _g.Value = c.G; _b.Value = c.B; _a.Value = c.A;
-        if (!fromHex) _hex.Text = ColorUtil.ToHex(c);
-        _swatch.Invalidate();
+        if (!fromWheel)
+        {
+            var (h, s, v) = Hsv.From(c);
+            if (s < 0.002f || v < 0.002f) h = _wheel.Hue; // grey and black have no hue: keep the ring where it was
+            _wheel.SetHsv(h, s, v);
+        }
+        _alphaBar.BaseColor = c;
+        _alphaBar.Alpha = c.A;
+        _r.Value = c.R; _g.Value = c.G; _b.Value = c.B;
+        if (!fromHex) _hex.Text = Format(c);
         _updating = false;
         _live?.Invoke(c);
     }
+
+    /// <summary>Builds the dialog without showing it (for screenshots in development).</summary>
+    internal static ColorPickerDialog CreateForTest(Color initial) => new(initial, null);
 
     /// <summary>Shows the dialog. Returns the chosen colour, or null if cancelled (the live callback is then reset to the original).</summary>
     public static Color? Pick(IWin32Window owner, Color initial, Action<Color>? live = null)
@@ -197,7 +206,6 @@ public sealed class ColorPickerDialog : UiForm
         return null;
     }
 }
-
 /// <summary>Rounded swatch button showing the colour and its hex code; click opens the picker.</summary>
 public sealed class ColorButton : Control
 {
@@ -271,16 +279,17 @@ public sealed class ColorButton : Control
     }
 }
 
-/// <summary>Edits a <see cref="FillSpec"/>: solid, linear gradient or circular gradient with up to three colours.</summary>
+/// <summary>Edits a <see cref="FillSpec"/>: solid, linear gradient or circular gradient with any number of colours.</summary>
 public sealed class FillEditor : UserControl
 {
     readonly MCombo _type = new() { Width = 180 };
-    readonly MCombo _count = new() { Width = 120 };
-    readonly ColorButton _c1 = new(), _c2 = new(), _c3 = new();
-    readonly Label _l1 = UiText.Label("Color"), _l2 = UiText.Label("Color 2"), _l3 = UiText.Label("Color 3");
+    readonly MButton _add = new() { Text = "Add color", Glyph = Glyph.Add, Style = ButtonStyle.Outlined };
+    readonly FlowLayoutPanel _stopsPanel;
+    readonly List<(Label label, ColorButton button, MButton remove, FlowLayoutPanel row)> _stopRows = new();
+    readonly List<string> _stops = new();
     readonly MSlider _angle = new() { Minimum = 0, Maximum = 360, Width = 250, Height = 30, Suffix = "°" };
     readonly Label _angleLabel = UiText.Label("Angle");
-    readonly FlowLayoutPanel _countRow, _row1, _row2, _row3, _angleRow;
+    readonly FlowLayoutPanel _typeRow, _addRow, _angleRow;
     FillSpec _fill = new();
     bool _updating;
 
@@ -292,21 +301,24 @@ public sealed class FillEditor : UserControl
         AutoSizeMode = AutoSizeMode.GrowAndShrink;
         BackColor = Color.Transparent;
         _type.Items.AddRange(new object[] { "Solid color", "Linear gradient", "Circular gradient" });
-        _count.Items.AddRange(new object[] { "2 colors", "3 colors" });
 
         var root = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoSize = true, Dock = DockStyle.Fill, BackColor = Color.Transparent };
-        _countRow = Row(_type, _count);
-        _row1 = Row(_l1, _c1);
-        _row2 = Row(_l2, _c2);
-        _row3 = Row(_l3, _c3);
+        _typeRow = Row(_type);
+        _stopsPanel = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoSize = true, Margin = Padding.Empty, BackColor = Color.Transparent };
+        _addRow = Row(_add);
         _angleRow = Row(_angleLabel, _angle);
-        foreach (var r in new[] { _countRow, _row1, _row2, _row3, _angleRow }) root.Controls.Add(r);
+        foreach (var r in new Control[] { _typeRow, _stopsPanel, _addRow, _angleRow }) root.Controls.Add(r);
         Controls.Add(root);
 
         _type.SelectedIndexChanged += (_, _) => Commit();
-        _count.SelectedIndexChanged += (_, _) => Commit();
         _angle.ValueChanged += (_, _) => Commit();
-        foreach (var c in new[] { _c1, _c2, _c3 }) c.ColorChanged += (_, _) => Commit();
+        _add.Click += (_, _) =>
+        {
+            if (_stops.Count >= FillSpec.MaxStops) return;
+            _stops.Add(_stops[^1]);
+            RebuildStops();
+            Commit();
+        };
     }
 
     static FlowLayoutPanel Row(params Control[] items)
@@ -321,24 +333,72 @@ public sealed class FillEditor : UserControl
     {
         _fill = fill;
         _updating = true;
+        _stops.Clear();
+        _stops.AddRange(fill.Stops is { Count: > 0 } ? fill.Stops : fill.Colors().Select(ColorUtil.ToHex));
+        while (_stops.Count < 2) _stops.Add(_stops[^1]);
         _type.SelectedIndex = (int)fill.Type;
-        _count.SelectedIndex = fill.ColorCount >= 3 ? 1 : 0;
-        _c1.Hex = fill.Color1;
-        _c2.Hex = fill.Color2;
-        _c3.Hex = fill.Color3;
         _angle.Value = Math.Clamp((int)Math.Round(fill.Angle), 0, 360);
+        RebuildStops();
         _updating = false;
         UpdateVisibility();
+    }
+
+    /// <summary>One row per colour: a solid fill shows only the first, a gradient shows them all with a remove button.</summary>
+    void RebuildStops()
+    {
+        bool gradient = _fill.Type != FillType.Solid && _type.SelectedIndex != 0;
+        int shown = gradient ? _stops.Count : 1;
+        bool wasUpdating = _updating;
+        _updating = true;
+        _stopsPanel.SuspendLayout();
+        while (_stopRows.Count < shown)
+        {
+            int index = _stopRows.Count;
+            var label = UiText.Label("Color");
+            var button = new ColorButton();
+            var remove = new MButton { Text = "", Glyph = Glyph.Close, Style = ButtonStyle.Text, Width = 40 };
+            button.ColorChanged += (_, _) =>
+            {
+                if (_updating || index >= _stops.Count) return;
+                _stops[index] = button.Hex;
+                Commit();
+            };
+            remove.Click += (_, _) =>
+            {
+                if (_stops.Count <= 2 || index >= _stops.Count) return;
+                _stops.RemoveAt(index);
+                RebuildStops();
+                Commit();
+            };
+            var row = Row(label, button, remove);
+            _stopRows.Add((label, button, remove, row));
+            _stopsPanel.Controls.Add(row);
+        }
+        for (int i = 0; i < _stopRows.Count; i++)
+        {
+            var (label, button, remove, row) = _stopRows[i];
+            row.Visible = i < shown;
+            if (i >= shown) continue;
+            button.Hex = _stops[i];
+            label.Text = !gradient ? "Color"
+                : _fill.Type == FillType.Radial ? (i == 0 ? "Center" : i == shown - 1 ? "Edge" : $"Color {i + 1}")
+                : $"Color {i + 1}";
+            remove.Visible = gradient && _stops.Count > 2;
+        }
+        _stopsPanel.ResumeLayout(true);
+        _updating = wasUpdating;
     }
 
     void Commit()
     {
         if (_updating) return;
         _fill.Type = (FillType)Math.Max(_type.SelectedIndex, 0);
-        _fill.ColorCount = _count.SelectedIndex == 1 ? 3 : 2;
-        _fill.Color1 = _c1.Hex;
-        _fill.Color2 = _c2.Hex;
-        _fill.Color3 = _c3.Hex;
+        _fill.Stops = new List<string>(_stops);
+        // Keep the older fields in step for code that still reads them.
+        _fill.Color1 = _stops[0];
+        _fill.Color2 = _stops[1];
+        _fill.Color3 = _stops.Count > 2 ? _stops[2] : _stops[1];
+        _fill.ColorCount = Math.Min(_stops.Count, 3);
         _fill.Angle = _angle.Value;
         UpdateVisibility();
         Changed?.Invoke(this, EventArgs.Empty);
@@ -347,12 +407,9 @@ public sealed class FillEditor : UserControl
     void UpdateVisibility()
     {
         bool gradient = _fill.Type != FillType.Solid;
-        _count.Visible = gradient;
-        _l1.Text = !gradient ? "Color" : _fill.Type == FillType.Radial ? "Center" : "Color 1";
-        _l2.Text = _fill.Type == FillType.Radial && _fill.ColorCount < 3 ? "Edge" : "Color 2";
-        _l3.Text = _fill.Type == FillType.Radial ? "Edge" : "Color 3";
-        _row2.Visible = gradient;
-        _row3.Visible = gradient && _fill.ColorCount >= 3;
+        RebuildStops();
+        _addRow.Visible = gradient;
+        _add.Enabled = _stops.Count < FillSpec.MaxStops;
         _angleRow.Visible = _fill.Type == FillType.Linear;
     }
 }

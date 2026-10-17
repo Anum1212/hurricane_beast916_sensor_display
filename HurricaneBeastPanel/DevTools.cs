@@ -28,6 +28,8 @@ static class DevTools
             el.Y = MathF.Round(y + 10 + (maxH - el.Height) / 2);
             // Unbound widgets show built-in demo values (65% / 40% / 55%), which is what a design check needs.
             el.Bind = el.Bind2 = el.Bind3 = "";
+            if (Environment.GetEnvironmentVariable("HB_GALLERY_BORDER") == "1") { el.BorderEnabled = true; el.BorderWidth = 4; el.BorderColor = "#FFFFFFFF"; }
+            if (Environment.GetEnvironmentVariable("HB_GALLERY_BORDER") == "2") { el.BorderEnabled = true; el.BorderWidth = 4; el.BorderColor = "#FFFFFFFF"; el.Border2Enabled = true; el.Border2Width = 3; el.Border2Color = "#FFFF4DC4"; }
             theme.Elements.Add(el);
             theme.Elements.Add(new Element
             {

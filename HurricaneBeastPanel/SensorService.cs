@@ -51,7 +51,7 @@ public sealed class SensorService : IDisposable
         try
         {
             _drives = DriveInfo.GetDrives()
-                .Where(d => d.DriveType == DriveType.Fixed && d.IsReady)
+                .Where(d => d.DriveType is DriveType.Fixed or DriveType.Removable && d.IsReady)
                 .Select(d => new DriveSnap
                 {
                     Letter = char.ToUpperInvariant(d.Name[0]), Label = d.VolumeLabel,
