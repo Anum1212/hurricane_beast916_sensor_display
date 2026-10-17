@@ -18,6 +18,7 @@ public sealed class ThemeEditorForm : UiForm
     readonly Label _titleLabel = new() { AutoSize = false, ForeColor = Pal.Text, Font = Pal.Ui(14f, FontStyle.Bold), BackColor = Color.Transparent };
     readonly Label _subtitle = new() { AutoSize = false, ForeColor = Pal.TextDim, Font = Pal.Ui(9f), BackColor = Color.Transparent };
     readonly MButton _undoBtn = IconButton(Glyph.Undo), _redoBtn = IconButton(Glyph.Redo), _zoomOutBtn = IconButton(Glyph.ZoomOut), _zoomInBtn = IconButton(Glyph.ZoomIn);
+    readonly MButton _gridBtn = new() { Text = "Grid", Style = ButtonStyle.Outlined };
     readonly MButton _rotateBtn = new() { Text = "Rotate layout", Glyph = Glyph.Rotate, Style = ButtonStyle.Outlined };
     readonly MButton _openBtn = new() { Text = "Open", Glyph = Glyph.Folder, Style = ButtonStyle.Outlined };
     readonly MButton _moreBtn = IconButton(Glyph.More);
@@ -96,6 +97,10 @@ public sealed class ThemeEditorForm : UiForm
         WireEvents();
 
         _canvas.Settings = settings;
+        _canvas.ShowGrid = settings.ShowGrid;
+        _canvas.SnapToGrid = settings.SnapToGrid;
+        _canvas.GridSize = settings.GridSize;
+        UpdateGridButton();
         _canvas.Snapshot = engine.GetSnapshot();
         _canvas.Theme = _theme;
 
@@ -115,7 +120,7 @@ public sealed class ThemeEditorForm : UiForm
     void BuildLayout()
     {
         // Top bar
-        _top.Controls.AddRange(new Control[] { _titleLabel, _subtitle, _undoBtn, _redoBtn, _zoomOutBtn, _zoom, _zoomInBtn, _orientChip, _rotateBtn, _openBtn, _moreBtn, _saveBtn });
+        _top.Controls.AddRange(new Control[] { _titleLabel, _subtitle, _undoBtn, _redoBtn, _zoomOutBtn, _zoom, _zoomInBtn, _orientChip, _gridBtn, _rotateBtn, _openBtn, _moreBtn, _saveBtn });
         _zoom.Items.AddRange(new object[] { "Fit", "25%", "33%", "50%", "66%", "75%", "100%", "150%", "200%" });
         _zoom.SelectedItem = "Fit";
         _top.Resize += (_, _) => LayoutTop();
@@ -200,7 +205,9 @@ public sealed class ThemeEditorForm : UiForm
         _rotateBtn.Size = _rotateBtn.GetPreferredSize(Size.Empty); Right(_rotateBtn, _rotateBtn.Width + (int)(10 * dp));
         _orientChip.Size = _orientChip.GetPreferredSize(Size.Empty);
         _orientChip.SetBounds(x - _orientChip.Width, (_top.Height - _orientChip.Height) / 2, _orientChip.Width, _orientChip.Height);
-        x -= _orientChip.Width + (int)(22 * dp);
+        x -= _orientChip.Width + (int)(14 * dp);
+        _gridBtn.Size = _gridBtn.GetPreferredSize(Size.Empty); Right(_gridBtn, _gridBtn.Width + (int)(10 * dp));
+        x -= (int)(8 * dp);
         Right(_zoomInBtn, (int)(40 * dp));
         _zoom.SetBounds(x - (int)(98 * dp), y + (int)(2 * dp), (int)(98 * dp), h - (int)(4 * dp)); x -= (int)(98 * dp) + gap;
         Right(_zoomOutBtn, (int)(40 * dp));
@@ -287,6 +294,7 @@ public sealed class ThemeEditorForm : UiForm
         _openBtn.Click += (_, _) => ShowOpenMenu();
         _moreBtn.Click += (_, _) => ShowMoreMenu();
         _rotateBtn.Click += (_, _) => ShowRotateMenu();
+        _gridBtn.Click += (_, _) => ShowGridMenu();
         _zoom.SelectedIndexChanged += (_, _) => ApplyZoom();
         _zoomOutBtn.Click += (_, _) => StepZoom(-1);
         _zoomInBtn.Click += (_, _) => StepZoom(1);
@@ -699,6 +707,7 @@ public sealed class ThemeEditorForm : UiForm
             case Keys.Control | Keys.Shift | Keys.Z: Redo(); return true;
             case Keys.Control | Keys.S: Save(); return true;
             case Keys.Control | Keys.D: DuplicateSelected(); return true;
+            case Keys.Control | Keys.G: SetGrid(show: !_canvas.ShowGrid); return true;
         }
         return base.ProcessCmdKey(ref msg, keyData);
     }
@@ -725,6 +734,38 @@ public sealed class ThemeEditorForm : UiForm
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(UiKit.MenuItem("Delete this theme...", DeleteTheme));
         UiKit.ShowBelow(menu, _moreBtn);
+    }
+
+    // ---------- grid ----------
+
+    void SetGrid(bool? show = null, bool? snap = null, int? size = null)
+    {
+        if (show.HasValue) _canvas.ShowGrid = _settings.ShowGrid = show.Value;
+        if (snap.HasValue) _canvas.SnapToGrid = _settings.SnapToGrid = snap.Value;
+        if (size.HasValue) _canvas.GridSize = _settings.GridSize = size.Value;
+        _settings.Save();
+        UpdateGridButton();
+    }
+
+    void UpdateGridButton()
+    {
+        _gridBtn.Style = _canvas.ShowGrid ? ButtonStyle.Tonal : ButtonStyle.Outlined;
+        _gridBtn.Invalidate();
+        _tips.SetToolTip(_gridBtn, "Grid: show it, snap to it, change its size (Ctrl+G)");
+    }
+
+    void ShowGridMenu()
+    {
+        var menu = UiKit.Menu();
+        menu.Items.Add(UiKit.MenuItem((_canvas.ShowGrid ? "✓  " : "      ") + "Show grid   (Ctrl+G)", () => SetGrid(show: !_canvas.ShowGrid)));
+        menu.Items.Add(UiKit.MenuItem((_canvas.SnapToGrid ? "✓  " : "      ") + "Snap to grid", () => SetGrid(snap: !_canvas.SnapToGrid)));
+        menu.Items.Add(new ToolStripSeparator());
+        foreach (int size in new[] { 5, 10, 20, 25, 50, 100 })
+        {
+            int s = size;
+            menu.Items.Add(UiKit.MenuItem((_canvas.GridSize == s ? "●  " : "      ") + $"Grid size {s} px", () => SetGrid(show: true, size: s)));
+        }
+        UiKit.ShowBelow(menu, _gridBtn);
     }
 
     void ShowRotateMenu()

@@ -22,6 +22,15 @@ public sealed class CanvasView : Control
     float _origRotation;
     float _zoom = 0.5f;
 
+    /// <summary>Design-time grid drawn over the preview; it is never part of the theme or the picture sent to the screen.</summary>
+    public bool ShowGrid { get => _showGrid; set { _showGrid = value; Invalidate(); } }
+    public bool SnapToGrid { get; set; }
+    public int GridSize { get => _gridSize; set { _gridSize = Math.Clamp(value, 2, 500); Invalidate(); } }
+    bool _showGrid;
+    int _gridSize = 20;
+
+    float Snap(float v) => SnapToGrid ? MathF.Round(v / _gridSize) * _gridSize : v;
+
     public AppSettings Settings { get; set; } = new();
     public SensorSnapshot Snapshot { get; set; } = new();
     public Element? Selected { get; private set; }
@@ -147,6 +156,7 @@ public sealed class CanvasView : Control
 
         g.InterpolationMode = InterpolationMode.HighQualityBicubic;
         g.DrawImage(_render, 0, 0, _theme.Width * Pix, _theme.Height * Pix);
+        if (_showGrid) DrawGrid(g);
         if (Selected == null) return;
 
         var el = Selected;
@@ -176,6 +186,32 @@ public sealed class CanvasView : Control
             g.FillRectangle(Brushes.White, hr);
             g.DrawRectangle(Pens.Black, hr.X, hr.Y, hr.Width, hr.Height);
         }
+    }
+
+    void DrawGrid(Graphics g)
+    {
+        if (_theme == null) return;
+        // Lines closer than ~7 screen pixels would turn into a grey wash, so use every 2nd, 5th... line instead.
+        int step = _gridSize;
+        while (step * Pix < 7 && step < 1000) step *= 2;
+        float w = _theme.Width * Pix, h = _theme.Height * Pix;
+        var state = g.Save();
+        g.SmoothingMode = SmoothingMode.None;
+        using var minor = new Pen(Color.FromArgb(46, 255, 255, 255), 1);
+        using var major = new Pen(Color.FromArgb(96, 255, 255, 255), 1);
+        int index = 0;
+        for (int x = 0; x <= _theme.Width; x += step, index++)
+        {
+            float sx = MathF.Floor(x * Pix);
+            g.DrawLine(index % 5 == 0 ? major : minor, sx, 0, sx, h);
+        }
+        index = 0;
+        for (int y = 0; y <= _theme.Height; y += step, index++)
+        {
+            float sy = MathF.Floor(y * Pix);
+            g.DrawLine(index % 5 == 0 ? major : minor, 0, sy, w, sy);
+        }
+        g.Restore(state);
     }
 
     // ---------- hit testing ----------
@@ -259,8 +295,8 @@ public sealed class CanvasView : Control
 
         if (_drag == Grip.Move)
         {
-            el.X = MathF.Round(_dragOrigin.X + mouse.X - _dragStart.X);
-            el.Y = MathF.Round(_dragOrigin.Y + mouse.Y - _dragStart.Y);
+            el.X = MathF.Round(Snap(_dragOrigin.X + mouse.X - _dragStart.X));
+            el.Y = MathF.Round(Snap(_dragOrigin.Y + mouse.Y - _dragStart.Y));
         }
         else if (_drag == Grip.Rotate)
         {
@@ -282,6 +318,7 @@ public sealed class CanvasView : Control
     void ResizeFromHandle(Element el, PointF mouse)
     {
         const float min = 4;
+        if (SnapToGrid && Math.Abs(_origRotation) < 0.01f) mouse = new PointF(Snap(mouse.X), Snap(mouse.Y)); // edges land on grid lines
         float w0 = _dragOrigin.Width, h0 = _dragOrigin.Height;
         var m = Rotate(new PointF(mouse.X - _origCenter.X, mouse.Y - _origCenter.Y), -_origRotation);
 
