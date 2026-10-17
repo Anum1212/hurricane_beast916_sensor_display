@@ -178,18 +178,24 @@ public sealed class ScreenDevice : IDisposable
         _port = null;
         if (sp == null) return;
         try { sp.DataReceived -= OnData; } catch { }
-        try
+        // Closing a USB serial port can block for ever when the screen has just rebooted or been unplugged, which froze the
+        // whole connection loop ("screen not detected" until the app was killed). Do it on another thread and stop waiting.
+        var closer = Task.Run(() =>
         {
-            if (sp.IsOpen)
+            try
             {
-                // Let the frame that is being sent finish so the screen is never left with half a picture.
-                long end = Environment.TickCount64 + 1500;
-                while (sp.BytesToWrite > 0 && Environment.TickCount64 < end) Thread.Sleep(10);
-                Thread.Sleep(80);
-                sp.Close();
+                if (sp.IsOpen)
+                {
+                    // Let the frame that is being sent finish so the screen is never left with half a picture.
+                    long end = Environment.TickCount64 + 1500;
+                    while (sp.BytesToWrite > 0 && Environment.TickCount64 < end) Thread.Sleep(10);
+                    Thread.Sleep(80);
+                    sp.Close();
+                }
             }
-        }
-        catch { }
-        sp.Dispose();
+            catch { }
+            try { sp.Dispose(); } catch { }
+        });
+        if (!closer.Wait(4000)) Log.Write("Closing the serial port took too long; continuing without waiting");
     }
 }

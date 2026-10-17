@@ -201,6 +201,19 @@ public sealed class PanelEngine : IDisposable
         }
     }
 
+    /// <summary>
+    /// The screen does not visibly change its backlight while a picture is streaming, so the picture itself is darkened too
+    /// (a black layer, the same way the vendor app does it). The preview is taken before this, so it stays bright.
+    /// </summary>
+    static void DimFrame(Bitmap frame, int brightness)
+    {
+        int alpha = (int)Math.Round((100 - Math.Clamp(brightness, 0, 100)) / 100.0 * 255);
+        if (alpha <= 0) return;
+        using var g = Graphics.FromImage(frame);
+        using var black = new SolidBrush(Color.FromArgb(alpha, 0, 0, 0));
+        g.FillRectangle(black, 0, 0, frame.Width, frame.Height);
+    }
+
     async Task StreamAsync(ScreenDevice dev, ScreenInfo info, CancellationToken ct)
     {
         byte[]? jpeg = null;
@@ -228,6 +241,7 @@ public sealed class PanelEngine : IDisposable
             {
                 _brightnessDirty = false;
                 if (info.SupportsBrightness) dev.SetBrightness(_settings.Brightness);
+                lastRender = long.MinValue / 2; // redraw now so the new brightness shows at once
             }
 
             int sendInterval = 1000 / Math.Clamp(_settings.SendFps, 1, 30);
@@ -255,6 +269,7 @@ public sealed class PanelEngine : IDisposable
                     lastPreview = sw.ElapsedMilliseconds;
                     FrameReady?.Invoke((Bitmap)frame.Clone());
                 }
+                DimFrame(frame, _settings.Brightness);
                 Orient(frame, info, _settings.Flip180, lw, lh);
                 jpeg = EncodeJpeg(frame, info.MaxJpegKb * 1024, ref quality);
             }

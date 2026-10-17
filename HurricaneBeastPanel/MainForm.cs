@@ -78,6 +78,10 @@ public sealed class MainForm : UiForm
     readonly MSwitch _autoConnect = new() { Text = "Start streaming when the app opens" };
     readonly MSwitch _startMin = new() { Text = "Start minimized to the tray" };
     readonly MSwitch _startup = new() { Text = "Start with Windows (runs as administrator)" };
+    readonly Card _weatherCard = new() { Title = "Weather" };
+    readonly Label _weatherHint = new() { AutoSize = false, ForeColor = Pal.TextDim, Font = Pal.Ui(9f), BackColor = Color.Transparent, Text = "Used by the weather elements in your themes. Leave empty to detect the place from your internet connection." };
+    readonly Card _driverCard = new() { Title = "CPU sensor driver" };
+    readonly Label _driverText = new() { AutoSize = false, ForeColor = Pal.TextDim, Font = Pal.Ui(9f), BackColor = Color.Transparent };
     readonly Card _aboutCard = new() { Title = "About" };
     readonly Label _aboutText = new() { AutoSize = false, ForeColor = Pal.TextDim, Font = Pal.Ui(9.5f), BackColor = Color.Transparent };
     readonly MButton _openFolder = new() { Text = "Open data folder", Glyph = Glyph.Folder, Style = ButtonStyle.Outlined };
@@ -172,7 +176,7 @@ public sealed class MainForm : UiForm
         _screenCard.Resize += (_, _) => LayoutScreenCard();
 
         // Display card
-        _displayCard.Controls.AddRange(new Control[] { _fahrenheit, _flip, _weatherLabel, _weatherPlace, _sensorNote, _pawnBtn });
+        _displayCard.Controls.AddRange(new Control[] { _fahrenheit, _flip, _sensorNote });
         _displayCard.Resize += (_, _) => LayoutDisplayCard();
 
         _dash.Controls.AddRange(new Control[] { _previewCard, _liveCard, _screenCard, _displayCard });
@@ -196,7 +200,7 @@ public sealed class MainForm : UiForm
         _liveCard.SetBounds(m, _previewCard.Bottom + gap, leftW, h - previewH - gap);
 
         // Right column: screen over display.
-        int displayH = (int)(310 * dp);
+        int displayH = (int)(190 * dp);
         _screenCard.SetBounds(m + leftW + gap, (int)(4 * dp), rightW, h - displayH - gap);
         _displayCard.SetBounds(_screenCard.Left, _screenCard.Bottom + gap, rightW, displayH);
     }
@@ -260,11 +264,7 @@ public sealed class MainForm : UiForm
         int pad = (int)(20 * dp), w = _displayCard.Width - pad * 2;
         _fahrenheit.SetBounds(pad, (int)(52 * dp), w, (int)(34 * dp));
         _flip.SetBounds(pad, (int)(92 * dp), w, (int)(34 * dp));
-        _weatherLabel.Location = new Point(pad, (int)(136 * dp));
-        _weatherPlace.SetBounds(pad, (int)(160 * dp), w, (int)(38 * dp));
-        _sensorNote.SetBounds(pad, (int)(208 * dp), w, (int)(44 * dp));
-        _pawnBtn.Size = new Size(_pawnBtn.GetPreferredSize(Size.Empty).Width + (int)(12 * dp), (int)(36 * dp));
-        _pawnBtn.Location = new Point(pad, (int)(256 * dp));
+        _sensorNote.SetBounds(pad, (int)(132 * dp), w, (int)(44 * dp));
     }
 
     void BuildThemesPage()
@@ -315,6 +315,26 @@ public sealed class MainForm : UiForm
                 y += (int)(42 * dp);
             }
         };
+        _weatherCard.Controls.AddRange(new Control[] { _weatherLabel, _weatherPlace, _weatherHint });
+        _weatherCard.Resize += (_, _) =>
+        {
+            if (DpiHelper.Scaling) return;
+            float dp = Pal.Dp(this);
+            int pad = (int)(20 * dp), w = _weatherCard.Width - pad * 2;
+            _weatherLabel.Location = new Point(pad, (int)(50 * dp));
+            _weatherPlace.SetBounds(pad, (int)(74 * dp), w, (int)(38 * dp));
+            _weatherHint.SetBounds(pad, (int)(120 * dp), w, (int)(40 * dp));
+        };
+        _driverCard.Controls.AddRange(new Control[] { _driverText, _pawnBtn });
+        _driverCard.Resize += (_, _) =>
+        {
+            if (DpiHelper.Scaling) return;
+            float dp = Pal.Dp(this);
+            int pad = (int)(20 * dp), w = _driverCard.Width - pad * 2;
+            _driverText.SetBounds(pad, (int)(50 * dp), w, (int)(56 * dp));
+            _pawnBtn.Size = new Size(_pawnBtn.GetPreferredSize(Size.Empty).Width + (int)(12 * dp), (int)(38 * dp));
+            _pawnBtn.Location = new Point(pad, (int)(112 * dp));
+        };
         _aboutText.Text = "Hurricane Beast Panel streams a live dashboard to the Hurricane Beast USB screen.\r\n" +
                           "Themes, settings and logs are kept in your AppData folder. Extra fonts: put .ttf/.otf files in the fonts folder.";
         _aboutCard.Controls.AddRange(new Control[] { _aboutText, _openFolder, _openLog, _openFonts });
@@ -323,22 +343,36 @@ public sealed class MainForm : UiForm
             if (DpiHelper.Scaling) return;
             float dp = Pal.Dp(this);
             int pad = (int)(20 * dp), w = _aboutCard.Width - pad * 2;
-            _aboutText.SetBounds(pad, (int)(52 * dp), w, (int)(56 * dp));
+            _aboutText.SetBounds(pad, (int)(52 * dp), w, (int)(84 * dp));
             _openFolder.Size = new Size(_openFolder.GetPreferredSize(Size.Empty).Width + (int)(12 * dp), (int)(38 * dp));
             _openLog.Size = new Size(_openLog.GetPreferredSize(Size.Empty).Width + (int)(12 * dp), (int)(38 * dp));
-            _openFolder.Location = new Point(pad, (int)(116 * dp));
-            _openLog.Location = new Point(_openFolder.Right + (int)(10 * dp), (int)(116 * dp));
+            _openFolder.Location = new Point(pad, (int)(144 * dp));
+            _openLog.Location = new Point(_openFolder.Right + (int)(10 * dp), (int)(144 * dp));
             _openFonts.Size = new Size(_openFonts.GetPreferredSize(Size.Empty).Width + (int)(12 * dp), (int)(38 * dp));
-            _openFonts.Location = new Point(_openLog.Right + (int)(10 * dp), (int)(116 * dp));
+            _openFonts.Location = new Point(_openLog.Right + (int)(10 * dp), (int)(144 * dp));
         };
-        _settingsPage.Controls.AddRange(new Control[] { _startupCard, _aboutCard });
+        _settingsPage.Controls.AddRange(new Control[] { _startupCard, _weatherCard, _driverCard, _aboutCard });
         _settingsPage.Resize += (_, _) =>
         {
             if (DpiHelper.Scaling) return;
             float dp = Pal.Dp(this);
-            int m = (int)(28 * dp), gap = (int)(18 * dp), w = Math.Min((int)(640 * dp), _settingsPage.Width - m * 2);
+            int m = (int)(28 * dp), gap = (int)(18 * dp);
+            bool twoColumns = _settingsPage.Width >= (int)(1000 * dp);
+            int w = twoColumns ? (_settingsPage.Width - m * 2 - gap) / 2 : Math.Min((int)(640 * dp), _settingsPage.Width - m * 2);
+            int driverH = (int)((_pawnBtn.Visible ? 170 : 104) * dp);
             _startupCard.SetBounds(m, (int)(4 * dp), w, (int)(190 * dp));
-            _aboutCard.SetBounds(m, _startupCard.Bottom + gap, w, (int)(180 * dp));
+            _weatherCard.SetBounds(m, _startupCard.Bottom + gap, w, (int)(168 * dp));
+            if (twoColumns)
+            {
+                int x2 = m + w + gap;
+                _driverCard.SetBounds(x2, (int)(4 * dp), w, driverH);
+                _aboutCard.SetBounds(x2, _driverCard.Bottom + gap, w, (int)(210 * dp));
+            }
+            else
+            {
+                _driverCard.SetBounds(m, _weatherCard.Bottom + gap, w, driverH);
+                _aboutCard.SetBounds(m, _driverCard.Bottom + gap, w, (int)(210 * dp));
+            }
         };
     }
 
@@ -378,12 +412,15 @@ public sealed class MainForm : UiForm
             _sensorNote.Text = "Not running as administrator, so CPU temperature and power will be missing.";
         else if (!PawnIoSetup.IsInstalled())
         {
-            _sensorNote.Text = "CPU temperature needs the free PawnIO driver.";
-            _pawnBtn.Visible = true;
+            _sensorNote.Text = "CPU temperature needs the free PawnIO driver. Install it from the Settings page.";
         }
+        bool pawn = PawnIoSetup.IsInstalled();
+        _driverText.Text = pawn
+            ? "PawnIO is installed. CPU temperature and power can be read (the app must run as administrator)."
+            : "CPU temperature and power need the free PawnIO driver (pawnio.eu), and it is not installed yet.";
+        _pawnBtn.Visible = !pawn;
         UpdateThemeCard();
     }
-
 
     async Task InstallPawnIoAsync()
     {
