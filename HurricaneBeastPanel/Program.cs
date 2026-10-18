@@ -70,6 +70,81 @@ static class Program
             return 0;
         }
 
+        // --fps-test <out.txt> [@themeKey]: times drawing + JPEG encoding of an animated theme to see what frame rates the PC can sustain.
+        int ft = Array.IndexOf(args, "--fps-test");
+        if (ft >= 0 && ft + 1 < args.Length)
+        {
+            var fs = AppSettings.Load();
+            var ftheme = ExtraThemes.ByKey(ft + 2 < args.Length && args[ft + 2].StartsWith("@") ? args[ft + 2][1..] : "rainbowh");
+            var rain = Element.Create(ElementType.Weather, 1, 200, 200);
+            rain.Name = "Rain test"; rain.Bind = "rain"; rain.X = 1650; rain.Y = 100; rain.Width = 200; rain.Height = 200;
+            ftheme.Elements.Add(rain); // makes the theme animated, like a GIF would
+            using var fsensors = new SensorService();
+            fsensors.Poll(); Thread.Sleep(800);
+            var fsnap = fsensors.Poll();
+            var report = new System.Text.StringBuilder();
+            report.AppendLine($"theme {ftheme.Name} {ftheme.Width}x{ftheme.Height}, animated={ThemeRenderer.HasAnimation(ftheme)}");
+            int q = 90; long total = 0; const int frames = 90;
+            for (int i = 0; i < 5; i++) { using var warm = ThemeRenderer.Render(ftheme, fsnap, fs, ftheme.Width, ftheme.Height); }
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            for (int i = 0; i < frames; i++)
+            {
+                using var f = ThemeRenderer.Render(ftheme, fsnap, fs, ftheme.Width, ftheme.Height);
+                f.RotateFlip(RotateFlipType.Rotate270FlipNone);
+                total += PanelEngine.EncodeJpeg(f, 90 * 1024, ref q).Length;
+                Thread.Sleep(0);
+            }
+            double ms = watch.Elapsed.TotalMilliseconds / frames, kb = total / (double)frames / 1024;
+            report.AppendLine($"draw + encode: {ms:0.0} ms per frame  ->  this PC can make about {1000 / ms:0} frames per second");
+            report.AppendLine($"frame size: {kb:0.0} KB");
+            foreach (int rate in new[] { 1, 5, 10, 15, 20, 30 })
+                report.AppendLine($"at {rate,2} fps setting: needs {ms * rate / 10:0}% of one CPU core, writes {kb * rate:0} KB/s to the screen{(ms > 1000.0 / rate ? "   <- PC too slow, real rate is lower" : "")}");
+            File.WriteAllText(args[ft + 1], report.ToString());
+
+            // A theme to try on the real screen: moving rain, snow and storm pictures plus a clock that counts milliseconds.
+            var test = new Theme { Name = "FPS Test", Width = 1920, Height = 462, Background = FillSpec.Solid("#FF05070D") };
+            float x = 40;
+            foreach (string kind in new[] { "rain", "snow", "storm" })
+            {
+                var pic = Element.Create(ElementType.Weather, 1, 400, 400);
+                pic.Name = "Weather " + kind; pic.Bind = kind; pic.X = x; pic.Y = 30; pic.Width = 400; pic.Height = 400;
+                test.Elements.Add(pic);
+                x += 420;
+            }
+            var clock = Theme.TextEl("Milliseconds", "{time:ss.fff}", 1300, 90, 580, 150, 130, true, "#FF7CF0FF", HAlign.Center);
+            test.Elements.Add(clock);
+            test.Elements.Add(Theme.TextEl("Hint", "Fast = smooth motion, digits blur", 1300, 260, 580, 50, 26, false, "#FF8C97AC", HAlign.Center));
+            ThemeStore.Save(test);
+            return 0;
+        }
+
+        // --render-demo <out.png> <theme name or @key>: draws a theme with sample sensor values (for screenshots).
+        int rd = Array.IndexOf(args, "--render-demo");
+        if (rd >= 0 && rd + 2 < args.Length)
+        {
+            var ds = AppSettings.Load();
+            ThemeStore.EnsureDefault();
+            var dtheme = args[rd + 2].StartsWith("@") ? ExtraThemes.ByKey(args[rd + 2][1..]) : ThemeStore.Load(args[rd + 2]);
+            var demo = Library.Demo;
+            float cpu0 = demo.CpuTemp ?? 54, gpu0 = demo.GpuTemp ?? 61, load0 = demo.CpuLoad ?? 38, gl0 = demo.GpuLoad ?? 72;
+            var rng = new Random(7);
+            for (int i = 0; i < 200; i++)
+            {
+                // a lively but believable history for the graph elements
+                demo.CpuTemp = cpu0 + 6 * MathF.Sin(i / 14f) + (float)rng.NextDouble() * 3;
+                demo.GpuTemp = gpu0 + 5 * MathF.Sin(i / 9f + 1) + (float)rng.NextDouble() * 2;
+                demo.CpuLoad = Math.Clamp(load0 + 25 * MathF.Sin(i / 6f) + (float)rng.NextDouble() * 12, 2, 100);
+                demo.GpuLoad = Math.Clamp(gl0 + 20 * MathF.Sin(i / 8f + 2) + (float)rng.NextDouble() * 8, 2, 100);
+                SensorHistory.Push(demo);
+            }
+            demo.CpuTemp = cpu0; demo.GpuTemp = gpu0; demo.CpuLoad = load0; demo.GpuLoad = gl0;
+            ThemeRenderer.Render(dtheme, Library.Demo, ds, dtheme.Width, dtheme.Height).Dispose();
+            Thread.Sleep(700);
+            using var dimg = ThemeRenderer.Render(dtheme, Library.Demo, ds, dtheme.Width, dtheme.Height);
+            dimg.Save(args[rd + 1], System.Drawing.Imaging.ImageFormat.Png);
+            return 0;
+        }
+
         int dg = Array.IndexOf(args, "--date-gallery");
         if (dg >= 0 && dg + 1 < args.Length)
         {

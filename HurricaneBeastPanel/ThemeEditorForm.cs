@@ -101,7 +101,7 @@ public sealed class ThemeEditorForm : UiForm
         _canvas.SnapToGrid = settings.SnapToGrid;
         _canvas.GridSize = settings.GridSize;
         UpdateGridButton();
-        _canvas.Snapshot = engine.GetSnapshot();
+        _canvas.Snapshot = DemoData ? Library.Demo : engine.GetSnapshot();
         _canvas.Theme = _theme;
 
         SelectCategory(Library.Categories[0]);
@@ -631,12 +631,15 @@ public sealed class ThemeEditorForm : UiForm
         MarkChanged();
     }
 
+    /// <summary>Development only (HB_DEMO_DATA=1): show sample values instead of this PC's sensors, for documentation screenshots.</summary>
+    static bool DemoData => Environment.GetEnvironmentVariable("HB_DEMO_DATA") == "1";
+
     async Task RefreshSnapshotAsync()
     {
         _snapTimer.Stop();
         try
         {
-            var snap = await Task.Run(_engine.GetSnapshot);
+            var snap = DemoData ? Library.Demo : await Task.Run(_engine.GetSnapshot);
             if (!_closing && !IsDisposed)
             {
                 _canvas.Snapshot = snap;

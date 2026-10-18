@@ -53,6 +53,16 @@ public static class Library
         GpuTemp = 61, GpuLoad = 72, GpuPower = 180, GpuClockMhz = 1900, GpuFan = 1450, GpuMemUsedMb = 6200, GpuMemTotalMb = 12288,
         RamLoad = 47, RamUsedGb = 15.2f, RamTotalGb = 32, CaseFan = 900, PumpFan = 2400,
         NetUpBps = 250_000, NetDownBps = 1_800_000,
+        MoboTemp = 38, PchTemp = 44, GpuHotspot = 72, GpuVoltage = 0.95f, CpuVoltage = 1.12f, GpuMemClockMhz = 1750, NetSentGb = 18.4f, NetRecvGb = 212.9f,
+        BoardName = "Example Z790 Board", BiosVersion = "F17a", RamType = "DDR5", RamSpeedMts = 5600, NetIp = "192.168.1.20", NetName = "Ethernet",
+        DisplayRes = "3840 x 2160", DisplayHz = 60, ProcessCount = 214,
+        Drives =
+        {
+            new DriveSnap { Letter = 'C', Label = "", TotalGb = 139, UsedGb = 96 },
+            new DriveSnap { Letter = 'D', Label = "Downloads", TotalGb = 812, UsedGb = 193 },
+            new DriveSnap { Letter = 'E', Label = "Entertainment", TotalGb = 931, UsedGb = 333 },
+            new DriveSnap { Letter = 'G', Label = "Games", TotalGb = 931, UsedGb = 212 },
+        },
         Weather = new WeatherInfo(WeatherKind.PartlyCloudy, true, 21, 19, 24, 14, 55, 12, 20, "Partly cloudy", "London"),
     };
 

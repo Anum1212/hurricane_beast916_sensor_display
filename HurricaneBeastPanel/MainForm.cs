@@ -70,6 +70,7 @@ public sealed class MainForm : UiForm
     readonly Panel _themesPage = new() { Dock = DockStyle.Fill, BackColor = Pal.Bg };
     readonly ThumbGrid _themeGrid = new() { BackColor = Pal.Bg, CellMinWidth = 300, CellAspect = 0.66f };
     readonly MButton _newThemeBtn = new() { Text = "New theme", Glyph = Glyph.Add, Style = ButtonStyle.Filled };
+    readonly MTextBox _themeSearch = new() { PlaceholderText = "Search themes..." };
     readonly Dictionary<string, Theme> _themeCache = new();
 
     // settings
@@ -271,6 +272,8 @@ public sealed class MainForm : UiForm
     {
         _themesPage.Controls.Add(_themeGrid);
         _themesPage.Controls.Add(_newThemeBtn);
+        _themesPage.Controls.Add(_themeSearch);
+        _themeSearch.TextChanged += (_, _) => RefreshThemes(scrollToTop: true);
         _themesPage.Resize += (_, _) =>
         {
             if (DpiHelper.Scaling) return;
@@ -278,6 +281,8 @@ public sealed class MainForm : UiForm
             int m = (int)(28 * dp);
             _newThemeBtn.Size = new Size(_newThemeBtn.GetPreferredSize(Size.Empty).Width + (int)(12 * dp), (int)(40 * dp));
             _newThemeBtn.Location = new Point(m, (int)(4 * dp));
+            int searchW = Math.Min((int)(360 * dp), Math.Max((int)(180 * dp), _themesPage.Width - m * 2 - _newThemeBtn.Width - (int)(24 * dp)));
+            _themeSearch.SetBounds(_themesPage.Width - m - searchW, (int)(4 * dp), searchW, (int)(40 * dp));
             _themeGrid.SetBounds(m - (int)(10 * dp), (int)(56 * dp), _themesPage.Width - m * 2 + (int)(20 * dp), _themesPage.Height - (int)(64 * dp));
         };
         _themeGrid.ImageProvider = (item, w, h) =>
@@ -406,7 +411,9 @@ public sealed class MainForm : UiForm
         _autoConnect.Checked = _settings.AutoConnect;
         _startMin.Checked = _settings.StartMinimized;
         _startup.Checked = StartupTask.IsEnabled();
-        if (_engine.SensorError != null)
+        if (Environment.GetEnvironmentVariable("HB_DEMO_DATA") == "1")
+            _sensorNote.Text = "";
+        else if (_engine.SensorError != null)
             _sensorNote.Text = "Sensor driver problem: " + _engine.SensorError;
         else if (!IsAdmin())
             _sensorNote.Text = "Not running as administrator, so CPU temperature and power will be missing.";
@@ -464,7 +471,7 @@ public sealed class MainForm : UiForm
         _port.SelectedIndex = idx < 0 ? 0 : idx;
     }
 
-    void RefreshThemes()
+    void RefreshThemes(bool scrollToTop = false)
     {
         var names = ThemeStore.List();
         if (!names.Any(n => string.Equals(n, _settings.ThemeName, StringComparison.OrdinalIgnoreCase)))
@@ -473,12 +480,13 @@ public sealed class MainForm : UiForm
             _settings.Save();
         }
         _themeCache.Clear();
-        var items = names.Select(n => new ThumbItem
+        string query = _themeSearch.Text.Trim();
+        var items = names.Where(n => query.Length == 0 || n.Contains(query, StringComparison.OrdinalIgnoreCase)).Select(n => new ThumbItem
         {
             Name = n, Tag = n,
             Badge = string.Equals(n, _settings.ThemeName, StringComparison.OrdinalIgnoreCase) ? "ACTIVE" : "",
         }).ToList();
-        _themeGrid.SetItems(items, keepScroll: true);
+        _themeGrid.SetItems(items, keepScroll: !scrollToTop);
         UpdateThemeCard();
     }
 
@@ -721,7 +729,7 @@ public sealed class MainForm : UiForm
         if (!Visible || _page != Page.Dashboard) return;
         try
         {
-            var s = _engine.GetSnapshot();
+            var s = Environment.GetEnvironmentVariable("HB_DEMO_DATA") == "1" ? Library.Demo : _engine.GetSnapshot(); // HB_DEMO_DATA: documentation screenshots only
             string F(float? v, string suffix, string format = "0") => v.HasValue ? v.Value.ToString(format) + suffix : "--";
             string unit = _settings.Fahrenheit ? "°F" : "°C";
             float? Temp(float? c) => c.HasValue && _settings.Fahrenheit ? c * 9 / 5 + 32 : c;
