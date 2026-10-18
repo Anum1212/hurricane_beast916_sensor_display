@@ -1,5 +1,5 @@
 # Builds the self-contained app and wraps it in an installer. Needs the .NET SDK and Inno Setup 6 (iscc.exe).
-param([string]$Version = "1.0.1")
+param([string]$Version = "1.1.0")
 $ErrorActionPreference = "Stop"
 $root = Split-Path $PSScriptRoot -Parent
 $publish = Join-Path $root "release\publish"
