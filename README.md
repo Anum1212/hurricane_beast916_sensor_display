@@ -37,7 +37,7 @@ Vertical themes for portrait mounting:
 *The pictures above use sample sensor values.*
 
 ## Features
-- Live CPU, GPU, RAM, VRAM, fan, network and drive sensors (LibreHardwareMonitor). Drives are listed with their real letters and names.
+- Live CPU, GPU, RAM, VRAM, fan, network and drive sensors (LibreHardwareMonitor). Drives are listed with their real letters and names. Upload and download speed (Mbps, MB/s, or text with its own unit), and the Windows volume and mute state.
 - Theme editor: text, shapes, glow, charts, gauges, graphs, meters, date/time formats, images, GIFs and MP4 (also as backgrounds), undo/redo, layers, rotation, and a design-time grid with snapping.
 - Gradients with up to 10 colors (linear or circular), solid colors, and a wheel color picker with an eyedropper.
 - Weather element: sun, moon, clouds, rain, snow, storm and fog pictures that follow the real weather (Open-Meteo), plus `{weather.*}` tokens. Set the city on the Settings page; empty means detect it from the internet connection.

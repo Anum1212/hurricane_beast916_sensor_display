@@ -175,6 +175,24 @@ static class Program
             return 0;
         }
 
+        // --sensor-test <out.txt>: prints a few readings and what some tokens expand to.
+        int sensorTest = Array.IndexOf(args, "--sensor-test");
+        if (sensorTest >= 0 && sensorTest + 1 < args.Length)
+        {
+            using var tsensors = new SensorService();
+            tsensors.Poll(); Thread.Sleep(1500);
+            var tsnap = tsensors.Poll();
+            var ts = AppSettings.Load();
+            string Ex(string text) => Tokens.Expand(text, tsnap, ts);
+            File.WriteAllLines(args[sensorTest + 1], new[]
+            {
+                $"volume raw: {tsnap.VolumePercent} muted: {tsnap.VolumeMuted}",
+                "volume tokens: " + Ex("{volume} | {volume.muted} | {volume.state}"),
+                "net tokens: " + Ex("down {net.downtext} / up {net.uptext} | {net.down:0.0} Mbps / {net.up:0.0} Mbps"),
+            });
+            return 0;
+        }
+
         int dg = Array.IndexOf(args, "--date-gallery");
         if (dg >= 0 && dg + 1 < args.Length)
         {

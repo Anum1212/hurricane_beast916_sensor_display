@@ -22,6 +22,9 @@ public sealed class SensorSnapshot
     public string NetIp = "", NetName = "", DisplayRes = "";
     public int ProcessCount, DisplayHz;
     public WeatherInfo? Weather;
+    /// <summary>Windows master volume of the default playback device, 0-100, and whether it is muted.</summary>
+    public float? VolumePercent;
+    public bool? VolumeMuted;
 }
 
 public sealed class DriveSnap
@@ -256,6 +259,7 @@ public sealed class SensorService : IDisposable
         s.RamSpeedMts = SystemInfo.RamSpeedMts;
         s.Drives = ReadDrives();
         s.Weather = WeatherService.Current;
+        AudioVolume.Read(s);
 
         // Use the busiest adapter so VPN/virtual adapters are not double counted.
         foreach (var nic in all.Where(h => h.HardwareType == HardwareType.Network))

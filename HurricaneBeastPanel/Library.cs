@@ -227,6 +227,37 @@ public static class Library
             GraphCard("CPU load graph", "CPU", "#FF5AAAFF", "cpu.load", "{cpu.load}%"),
             GraphCard("GPU load graph", "GPU", "#FFFF825A", "gpu.load", "{gpu.load}%"),
             GraphCard("Network graph", "DOWNLOAD", "#FF2BF28A", "net.down", "{net.down:0.0} Mbps"),
+            GraphCard("Upload graph", "UPLOAD", "#FFFF825A", "net.up", "{net.up:0.0} Mbps"),
+            Ring("Volume ring", "VOLUME", "volume", "{volume}%", "#FF46DCDC"),
+            new LibraryItem
+            {
+                Name = "Volume bar", Width = 460, Height = 90,
+                Build = () =>
+                {
+                    var bar = Element.Create(ElementType.ChartLinear, 1, 460, 26);
+                    bar.Name = "Volume bar"; bar.X = 0; bar.Y = 52; bar.Width = 460; bar.Height = 26; bar.CornerRadius = 13; bar.Bind = "volume";
+                    bar.Fill = FillSpec.Solid("#FF46DCDC");
+                    return new List<Element>
+                    {
+                        Theme.TextEl("Volume label", "VOLUME", 0, 0, 200, 44, 28, true, "#FF46DCDC"),
+                        Theme.TextEl("Volume value", "{volume.state}", 200, 0, 260, 44, 30, true, align: HAlign.Right),
+                        bar,
+                    };
+                },
+            },
+            new LibraryItem
+            {
+                Name = "Network speed", Width = 440, Height = 190,
+                Build = () => new List<Element>
+                {
+                    Theme.RectEl("Network plate", 0, 0, 440, 190, FillSpec.Solid("#FF181C28"), 26),
+                    Theme.TextEl("Network title", "NETWORK", 24, 14, 250, 44, 30, true, "#FF5AAAFF"),
+                    Theme.TextEl("Down label", "Download", 24, 70, 170, 40, 24, color: Dim),
+                    Theme.TextEl("Down value", "{net.downtext}", 180, 70, 236, 40, 28, true, align: HAlign.Right),
+                    Theme.TextEl("Up label", "Upload", 24, 122, 170, 40, 24, color: Dim),
+                    Theme.TextEl("Up value", "{net.uptext}", 180, 122, 236, 40, 28, true, align: HAlign.Right),
+                },
+            },
             new LibraryItem
             {
                 Name = "Fan speeds", Width = 360, Height = 230,

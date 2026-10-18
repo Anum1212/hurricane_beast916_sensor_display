@@ -93,6 +93,11 @@ public static class Tokens
         new("net.downmbs", "Download MB/s", true, "0.0"),
         new("net.sentgb", "Total uploaded GB", true, "0.0"),
         new("net.recvgb", "Total downloaded GB", true, "0.0"),
+        new("net.uptext", "Upload speed with its own unit (850 KB/s, 1.2 MB/s)", false),
+        new("net.downtext", "Download speed with its own unit (850 KB/s, 1.2 MB/s)", false),
+        new("volume", "Windows volume %", true),
+        new("volume.muted", "Windows volume muted (1 = muted, 0 = sound on)", true),
+        new("volume.state", "Windows volume text (45%, or Muted)", false),
         new("weather.temp", "Weather: temperature outside", true),
         new("weather.feels", "Weather: feels-like temperature", true),
         new("weather.high", "Weather: today's high", true),
@@ -199,6 +204,9 @@ public static class Tokens
             case "mobo.name": return s.BoardName.Length > 0 ? s.BoardName : "--";
             case "bios.version": return s.BiosVersion.Length > 0 ? s.BiosVersion : "--";
             case "ram.type": return s.RamType.Length > 0 ? s.RamType : "--";
+            case "net.uptext": return Rate(s.NetUpBps);
+            case "net.downtext": return Rate(s.NetDownBps);
+            case "volume.state": return s.VolumeMuted == true ? "Muted" : s.VolumePercent.HasValue ? $"{s.VolumePercent.Value:0}%" : "--";
             case "weather.condition": WeatherService.Touch(settings.WeatherLocation); return s.Weather?.Condition ?? "--";
             case "weather.city": WeatherService.Touch(settings.WeatherLocation); return s.Weather is { City.Length: > 0 } w ? w.City : "--";
         }
@@ -245,6 +253,16 @@ public static class Tokens
         };
     }
 
+    /// <summary>Bytes per second as readable text, switching between B/s, KB/s, MB/s and GB/s.</summary>
+    static string Rate(float bytesPerSecond)
+    {
+        double b = Math.Max(0, bytesPerSecond);
+        if (b < 1000) return $"{b:0} B/s";
+        if (b < 1_000_000) return $"{b / 1000:0} KB/s";
+        if (b < 1_000_000_000) return $"{b / 1_000_000:0.0} MB/s";
+        return $"{b / 1_000_000_000:0.00} GB/s";
+    }
+
     static float? Finite(float? v) => v.HasValue && float.IsFinite(v.Value) ? v : null;
 
     /// <summary>Raw value of a numeric token (temperatures in °C).</summary>
@@ -275,6 +293,8 @@ public static class Tokens
         "ram.speed" => s.RamSpeedMts > 0 ? s.RamSpeedMts : null,
         "ram.clock" => s.RamSpeedMts > 0 ? s.RamSpeedMts / 2f : null,
         var k when k.StartsWith("drive.") => DriveNumber(k, s),
+        "volume" => s.VolumePercent,
+        "volume.muted" => s.VolumeMuted.HasValue ? (s.VolumeMuted.Value ? 1f : 0f) : null,
         "weather.temp" => Finite(s.Weather?.TempC),
         "weather.feels" => Finite(s.Weather?.FeelsC),
         "weather.high" => Finite(s.Weather?.HighC),

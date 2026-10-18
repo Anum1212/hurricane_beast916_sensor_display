@@ -85,7 +85,7 @@ public sealed class ThemeEditorForm : UiForm
         _lastCommitted = _savedJson;
 
         Text = "Theme editor";
-        Icon = SystemIcons.Application;
+        Icon = AppIcon.Small();
         StartPosition = FormStartPosition.CenterScreen;
         // Sizes are in 96-dpi design units; DpiHelper.Fit scales them to the monitor.
         var work = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1400, 800);
