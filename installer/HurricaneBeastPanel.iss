@@ -1,7 +1,7 @@
 ; Inno Setup script for Hurricane Beast Panel. Build with installer\build-installer.ps1.
 #define AppName "Hurricane Beast Panel"
 #ifndef AppVersion
-  #define AppVersion "1.1.0"
+  #define AppVersion "1.0.0"
 #endif
 #define AppExe "HurricaneBeastPanel.exe"
 
