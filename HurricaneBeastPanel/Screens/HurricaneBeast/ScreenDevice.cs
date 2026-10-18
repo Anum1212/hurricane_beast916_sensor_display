@@ -7,7 +7,7 @@ using Microsoft.Win32;
 namespace HurricaneBeastPanel;
 
 /// <summary>Device description returned by command 0x06.</summary>
-public sealed record ScreenInfo(
+public sealed record DeviceReport(
     string Uid, int Width, int Height, int Angle, int Brightness, string Model, double Version)
 {
     // The vendor app swaps the axes for 90/270 degree panels, so frames are portrait on a 1920x462 bar.
@@ -83,7 +83,7 @@ public sealed class ScreenDevice : IDisposable
         SerialPort.GetPortNames().Contains(name, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Opens the port and reads the device description. Throws if the screen does not answer.</summary>
-    public ScreenInfo Open(string portName)
+    public DeviceReport Open(string portName)
     {
         // Baud rate is ignored by USB CDC, DTR must be asserted.
         var sp = new SerialPort(portName, 115200, Parity.None, 8, StopBits.One)
@@ -127,7 +127,7 @@ public sealed class ScreenDevice : IDisposable
         catch { /* port closing */ }
     }
 
-    ScreenInfo? QueryInfo()
+    DeviceReport? QueryInfo()
     {
         lock (_rx) _rx.Clear();
         WriteRaw(Build(CmdInfo));
@@ -143,7 +143,7 @@ public sealed class ScreenDevice : IDisposable
         return null;
     }
 
-    static ScreenInfo? TryParseInfo(byte[] data)
+    static DeviceReport? TryParseInfo(byte[] data)
     {
         int start = Array.IndexOf(data, (byte)'{');
         int end = Array.LastIndexOf(data, (byte)'}');
@@ -155,7 +155,7 @@ public sealed class ScreenDevice : IDisposable
             int Int(string k, int def = 0) => d.TryGetProperty(k, out var v) && v.TryGetInt32(out int i) ? i : def;
             string Str(string k) => d.TryGetProperty(k, out var v) ? v.ToString() : "";
             double.TryParse(Str("version"), NumberStyles.Float, CultureInfo.InvariantCulture, out double ver);
-            return new ScreenInfo(Str("uid"), Int("width"), Int("height"), Int("angle"),
+            return new DeviceReport(Str("uid"), Int("width"), Int("height"), Int("angle"),
                 Int("brightness", 100), Str("model"), ver);
         }
         catch (JsonException) { return null; }

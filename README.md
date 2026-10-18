@@ -60,7 +60,7 @@ CPU temperature and power need administrator rights, so the app asks for elevati
 `installer\build-installer.ps1` publishes the app and builds `release\HurricaneBeastPanel-Setup-<version>.exe` with [Inno Setup 6](https://jrsoftware.org/isinfo.php). The installer checks for the PawnIO driver and offers to install it (winget), open pawnio.eu, or skip it.
 
 ## Build on it for other screens
-The community is free to build on this project, including for other screen brands such as TURZX. The sensor reading, theme renderer and editor do not depend on a particular screen: a new brand mostly needs its own connection code (finding the device, its protocol and its frame format, see `ScreenDevice.cs` and `PanelEngine.cs`).
+The community is free to build on this project, including for other screen brands such as TURZX. The sensor reading, theme renderer and editor do not depend on a particular screen: a new brand needs its own **screen driver** (finding the device, its protocol and its frame format). Drivers sit behind two small interfaces in `Screens/IScreenDriver.cs`; the Hurricane Beast driver and a Simulator driver (no hardware needed) are complete examples. See [docs/ADDING_A_SCREEN.md](docs/ADDING_A_SCREEN.md).
 
 All we ask is that you **give credit**: please mention this project and link back to it in your README or about page. It will be appreciated. The MIT license (see `LICENSE`) also requires keeping the copyright notice in copies of the code.
 

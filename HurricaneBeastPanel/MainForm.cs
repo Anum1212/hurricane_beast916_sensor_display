@@ -719,7 +719,7 @@ public sealed class MainForm : UiForm
     void ShowDevice(ScreenInfo? info)
     {
         _rowModel.Value = info?.Model ?? "-";
-        _rowFirmware.Value = info == null ? "-" : info.Version.ToString("0.0");
+        _rowFirmware.Value = info == null ? "-" : info.Firmware;
         _rowResolution.Value = info == null ? "-" : $"{info.Width} x {info.Height}";
         if (info == null) _preview.Placeholder = "Screen not connected";
     }

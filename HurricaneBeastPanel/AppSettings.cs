@@ -6,6 +6,8 @@ public sealed class AppSettings
 {
     /// <summary>COM port name, empty means auto-detect.</summary>
     public string Port { get; set; } = "";
+    /// <summary>Limits screen detection to one brand (the factory's Brand, e.g. "Hurricane Beast"). Empty means try every driver.</summary>
+    public string Driver { get; set; } = "";
     public int Brightness { get; set; } = 80;
     /// <summary>How many times per second the current frame is written to the screen.</summary>
     public int SendFps { get; set; } = 15;

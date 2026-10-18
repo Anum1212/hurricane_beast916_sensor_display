@@ -1,14 +1,15 @@
 using System.Diagnostics;
-using System.Drawing.Imaging;
 using Microsoft.Win32;
 
 namespace HurricaneBeastPanel;
 
-/// <summary>Background loop: finds the screen, connects, renders the dashboard and streams JPEG frames. Reconnects on its own.</summary>
+/// <summary>
+/// Background loop: finds a screen through the screen drivers, connects, renders the dashboard and streams it.
+/// Reconnects on its own. Everything specific to one brand of screen is in its <see cref="IScreenDriver"/>.
+/// </summary>
 public sealed class PanelEngine : IDisposable
 {
     const int RenderIntervalMs = 1000;
-    const int KeepAliveMs = 1500;
 
     readonly AppSettings _settings;
     readonly SensorService _sensors = new();
@@ -58,19 +59,6 @@ public sealed class PanelEngine : IDisposable
         }
     }
 
-    /// <summary>
-    /// Rotates the rendered theme into the orientation of the frame the panel expects.
-    /// A horizontal theme on a panel that wants portrait frames is turned 90 degrees (270 clockwise); the flip option reverses that.
-    /// </summary>
-    static void Orient(Bitmap bmp, ScreenInfo info, bool flip, int logicalW, int logicalH)
-    {
-        bool sameShape = logicalW == info.FrameWidth && logicalH == info.FrameHeight;
-        var rf = sameShape
-            ? (flip ? RotateFlipType.Rotate180FlipNone : RotateFlipType.RotateNoneFlipNone)
-            : (flip ? RotateFlipType.Rotate90FlipNone : RotateFlipType.Rotate270FlipNone);
-        if (rf != RotateFlipType.RotateNoneFlipNone) bmp.RotateFlip(rf);
-    }
-
     void OnPowerModeChanged(object? sender, PowerModeChangedEventArgs e)
     {
         // After sleep the USB port is usually gone; drop the connection and re-open it.
@@ -103,7 +91,7 @@ public sealed class PanelEngine : IDisposable
     sealed class ScreenRestartingException : Exception { }
 
     /// <summary>
-    /// Restarts the screen with its own restart command (the same one the vendor app uses).
+    /// Restarts the screen with its own restart command.
     /// While streaming the command goes out on the open connection and the app reconnects when the screen is back;
     /// when stopped it briefly opens the port just for this.
     /// </summary>
@@ -118,11 +106,12 @@ public sealed class PanelEngine : IDisposable
         {
             try
             {
-                string? port = string.IsNullOrWhiteSpace(_settings.Port) ? ScreenDevice.FindPort() : _settings.Port;
-                if (port == null) { Status("Screen not found - plug it in"); return; }
-                using var dev = new ScreenDevice();
-                dev.Open(port);
-                dev.SendCommand(ScreenDevice.CmdRestart);
+                var found = ScreenDrivers.Locate(_settings);
+                if (found == null) { Status("Screen not found - plug it in"); return; }
+                using var driver = found.Value.factory.Create();
+                var info = driver.Open(found.Value.port);
+                if (!info.SupportsRestart) { Status("This screen cannot be restarted from the app"); return; }
+                driver.Restart();
                 Status("Screen restarting...");
             }
             catch (UnauthorizedAccessException) { Status("COM port is busy - stop streaming first"); }
@@ -148,29 +137,27 @@ public sealed class PanelEngine : IDisposable
 
         while (!ct.IsCancellationRequested)
         {
-            ScreenDevice? dev = null;
+            IScreenDriver? driver = null;
             try
             {
-                string? port = string.IsNullOrWhiteSpace(_settings.Port)
-                    ? ScreenDevice.FindPort()
-                    : ScreenDevice.PortExists(_settings.Port) ? _settings.Port : null;
-                if (port == null)
+                var found = ScreenDrivers.Locate(_settings);
+                if (found == null)
                 {
                     Once("Screen not found - plug it in");
                     await Task.Delay(2000, ct);
                     continue;
                 }
+                string port = found.Value.port;
 
                 Once($"Connecting on {port}...");
-                dev = new ScreenDevice();
-                var info = dev.Open(port);
+                driver = found.Value.factory.Create();
+                var info = driver.Open(port);
                 DeviceChanged?.Invoke(info);
-                if (info.SupportsBrightness) dev.SetBrightness(_settings.Brightness);
-                dev.SendCommand(ScreenDevice.CmdLive);
+                driver.BeginStreaming(_settings.Brightness);
                 Once($"Streaming to {info.Model} on {port}");
                 lastStatus = "";
 
-                await StreamAsync(dev, info, ct);
+                await StreamAsync(driver, info, ct);
             }
             catch (OperationCanceledException)
             {
@@ -192,7 +179,7 @@ public sealed class PanelEngine : IDisposable
             }
             finally
             {
-                dev?.Dispose();
+                driver?.Dispose();
                 DeviceChanged?.Invoke(null);
             }
 
@@ -201,28 +188,12 @@ public sealed class PanelEngine : IDisposable
         }
     }
 
-    /// <summary>
-    /// The screen does not visibly change its backlight while a picture is streaming, so the picture itself is darkened too
-    /// (a black layer, the same way the vendor app does it). The preview is taken before this, so it stays bright.
-    /// </summary>
-    static void DimFrame(Bitmap frame, int brightness)
+    async Task StreamAsync(IScreenDriver driver, ScreenInfo info, CancellationToken ct)
     {
-        int alpha = (int)Math.Round((100 - Math.Clamp(brightness, 0, 100)) / 100.0 * 255);
-        if (alpha <= 0) return;
-        using var g = Graphics.FromImage(frame);
-        using var black = new SolidBrush(Color.FromArgb(alpha, 0, 0, 0));
-        g.FillRectangle(black, 0, 0, frame.Width, frame.Height);
-    }
-
-    async Task StreamAsync(ScreenDevice dev, ScreenInfo info, CancellationToken ct)
-    {
-        byte[]? jpeg = null;
         var sw = Stopwatch.StartNew();
-        long lastRender = long.MinValue / 2, lastKeepAlive = 0, lastPreview = 0;
-        byte[] keepAlive = ScreenDevice.Build(ScreenDevice.CmdLive);
+        long lastRender = long.MinValue / 2, lastPreview = 0;
         Theme? lastTheme = null;
         bool animated = false;
-        int quality = 90;
         _reconnect = false;
 
         while (!ct.IsCancellationRequested)
@@ -232,15 +203,19 @@ public sealed class PanelEngine : IDisposable
             if (_restartRequested)
             {
                 _restartRequested = false;
-                dev.SendCommand(ScreenDevice.CmdRestart);
-                await Task.Delay(300, ct);
-                throw new ScreenRestartingException();
+                if (info.SupportsRestart)
+                {
+                    driver.Restart();
+                    await Task.Delay(300, ct);
+                    throw new ScreenRestartingException();
+                }
+                Status("This screen cannot be restarted from the app");
             }
 
             if (_brightnessDirty)
             {
                 _brightnessDirty = false;
-                if (info.SupportsBrightness) dev.SetBrightness(_settings.Brightness);
+                if (info.SupportsBrightness) driver.SetBrightness(_settings.Brightness);
                 lastRender = long.MinValue / 2; // redraw now so the new brightness shows at once
             }
 
@@ -259,7 +234,7 @@ public sealed class PanelEngine : IDisposable
             {
                 lastRender = sw.ElapsedMilliseconds;
                 var snapshot = GetSnapshot();
-                // Draw the theme in its own orientation, then turn it into the frame the panel expects.
+                // Draw the theme in its own orientation; the driver turns it into the frame the screen expects.
                 int shortSide = Math.Min(info.Width, info.Height), longSide = Math.Max(info.Width, info.Height);
                 int lw = theme.IsVertical ? shortSide : longSide;
                 int lh = theme.IsVertical ? longSide : shortSide;
@@ -269,50 +244,13 @@ public sealed class PanelEngine : IDisposable
                     lastPreview = sw.ElapsedMilliseconds;
                     FrameReady?.Invoke((Bitmap)frame.Clone());
                 }
-                DimFrame(frame, _settings.Brightness);
-                Orient(frame, info, _settings.Flip180, lw, lh);
-                jpeg = EncodeJpeg(frame, info.MaxJpegKb * 1024, ref quality);
+                if (info.DimInSoftware) FrameTools.Dim(frame, _settings.Brightness); // the preview above stays bright
+                driver.SetFrame(frame, _settings.Flip180);
             }
 
-            if (jpeg != null) dev.WriteRaw(jpeg);
-
-            if (sw.ElapsedMilliseconds - lastKeepAlive >= KeepAliveMs)
-            {
-                lastKeepAlive = sw.ElapsedMilliseconds;
-                dev.WriteRaw(keepAlive);
-            }
+            driver.Send();
 
             await Task.Delay(sendInterval, ct);
-        }
-    }
-
-    static readonly ImageCodecInfo JpegCodec =
-        ImageCodecInfo.GetImageEncoders().First(c => c.MimeType == "image/jpeg");
-
-    /// <summary>Encodes as JPEG, lowering quality until the frame fits the firmware's size limit.</summary>
-    public static byte[] EncodeJpeg(Bitmap bmp, int maxBytes)
-    {
-        int quality = 90;
-        return EncodeJpeg(bmp, maxBytes, ref quality);
-    }
-
-    /// <summary>
-    /// Same, but starts from the quality that worked last time so animated themes do not re-encode several times per frame.
-    /// The quality creeps back up when frames come in well under the limit.
-    /// </summary>
-    public static byte[] EncodeJpeg(Bitmap bmp, int maxBytes, ref int quality)
-    {
-        for (int q = Math.Clamp(quality, 20, 92); ; q -= 5)
-        {
-            using var parms = new EncoderParameters(1);
-            parms.Param[0] = new EncoderParameter(Encoder.Quality, (long)q);
-            using var ms = new MemoryStream();
-            bmp.Save(ms, JpegCodec, parms);
-            if (ms.Length <= maxBytes || q <= 20)
-            {
-                quality = ms.Length < maxBytes * 0.6 ? Math.Min(q + 2, 92) : q;
-                return ms.ToArray();
-            }
         }
     }
 

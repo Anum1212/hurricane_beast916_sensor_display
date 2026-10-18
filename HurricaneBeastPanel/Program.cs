@@ -91,7 +91,7 @@ static class Program
             {
                 using var f = ThemeRenderer.Render(ftheme, fsnap, fs, ftheme.Width, ftheme.Height);
                 f.RotateFlip(RotateFlipType.Rotate270FlipNone);
-                total += PanelEngine.EncodeJpeg(f, 90 * 1024, ref q).Length;
+                total += FrameTools.EncodeJpeg(f, 90 * 1024, ref q).Length;
                 Thread.Sleep(0);
             }
             double ms = watch.Elapsed.TotalMilliseconds / frames, kb = total / (double)frames / 1024;
@@ -142,6 +142,36 @@ static class Program
             Thread.Sleep(700);
             using var dimg = ThemeRenderer.Render(dtheme, Library.Demo, ds, dtheme.Width, dtheme.Height);
             dimg.Save(args[rd + 1], System.Drawing.Imaging.ImageFormat.Png);
+            return 0;
+        }
+
+        // --engine-test: runs the whole streaming loop against the simulator driver (no screen needed) and reports what happened.
+        if (args.Contains("--engine-test"))
+        {
+            Environment.SetEnvironmentVariable("HB_SIMULATOR", "1");
+            var es = AppSettings.Load();
+            es.Driver = "Simulator"; es.Brightness = 60; es.Port = "";
+            ThemeStore.EnsureDefault();
+            if (File.Exists(SimulatorDriver.OutputPath)) File.Delete(SimulatorDriver.OutputPath);
+            var messages = new List<string>();
+            ScreenInfo? seen = null;
+            using (var engine = new PanelEngine(es))
+            {
+                engine.StatusChanged += m => messages.Add(m);
+                engine.DeviceChanged += i => { if (i != null) seen = i; };
+                int frames = 0;
+                engine.FrameReady += b => { frames++; b.Dispose(); };
+                engine.Start();
+                Thread.Sleep(3500);
+                engine.ApplyBrightness();
+                engine.RestartScreen(); // exercises the restart path while streaming
+                Thread.Sleep(7000);
+                engine.StopAsync().GetAwaiter().GetResult();
+                messages.Add($"preview frames: {frames}");
+            }
+            messages.Add("screen seen: " + (seen == null ? "none" : $"{seen.Model} fw {seen.Firmware} {seen.Width}x{seen.Height}"));
+            messages.Add("picture file written: " + File.Exists(SimulatorDriver.OutputPath));
+            File.WriteAllLines(args[Array.IndexOf(args, "--engine-test") + 1], messages);
             return 0;
         }
 
@@ -342,10 +372,10 @@ static class Program
         {
             using var timed = ThemeRenderer.Render(theme, snap, settings, theme.Width, theme.Height);
             timed.RotateFlip(RotateFlipType.Rotate270FlipNone);
-            PanelEngine.EncodeJpeg(timed, 90 * 1024, ref quality);
+            FrameTools.EncodeJpeg(timed, 90 * 1024, ref quality);
         }
         double msPerFrame = clock.Elapsed.TotalMilliseconds / timedFrames;
-        int size = PanelEngine.EncodeJpeg(bmp, 90 * 1024).Length;
+        int size = FrameTools.EncodeJpeg(bmp, 90 * 1024).Length;
         File.WriteAllText(path + ".txt", $"ms/frame={msPerFrame:0.0}, jpeg {size} bytes, admin={IsAdmin()}, sensorError={sensors.OpenError}, " +
             $"cpuTemp={snap.CpuTemp}, gpuTemp={snap.GpuTemp}, cpuLoad={snap.CpuLoad}, ram={snap.RamLoad}");
         return 0;
