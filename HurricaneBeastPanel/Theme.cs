@@ -425,11 +425,11 @@ public static class ThemeStore
             settings.NeonThemeAdded = true;
             settings.Save();
         }
-        if (settings.ExtraThemesVersion < 3)
+        if (settings.ExtraThemesVersion < 4)
         {
             foreach (var extra in ExtraThemes.All())
                 if (!Exists(extra.Name)) Save(extra);
-            settings.ExtraThemesVersion = 3;
+            settings.ExtraThemesVersion = 4;
             settings.Save();
         }
         if (!settings.VerticalThemeAdded)

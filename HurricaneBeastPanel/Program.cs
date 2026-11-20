@@ -126,7 +126,7 @@ static class Program
             ThemeStore.EnsureDefault();
             var dtheme = args[rd + 2].StartsWith("@") ? ExtraThemes.ByKey(args[rd + 2][1..]) : ThemeStore.Load(args[rd + 2]);
             var demo = Library.Demo;
-            float cpu0 = demo.CpuTemp ?? 54, gpu0 = demo.GpuTemp ?? 61, load0 = demo.CpuLoad ?? 38, gl0 = demo.GpuLoad ?? 72;
+            float cpu0 = demo.CpuTemp ?? 54, gpu0 = demo.GpuTemp ?? 61, load0 = demo.CpuLoad ?? 38, gl0 = demo.GpuLoad ?? 72, fps0 = demo.Fps ?? 144;
             var rng = new Random(7);
             for (int i = 0; i < 200; i++)
             {
@@ -135,9 +135,10 @@ static class Program
                 demo.GpuTemp = gpu0 + 5 * MathF.Sin(i / 9f + 1) + (float)rng.NextDouble() * 2;
                 demo.CpuLoad = Math.Clamp(load0 + 25 * MathF.Sin(i / 6f) + (float)rng.NextDouble() * 12, 2, 100);
                 demo.GpuLoad = Math.Clamp(gl0 + 20 * MathF.Sin(i / 8f + 2) + (float)rng.NextDouble() * 8, 2, 100);
+                demo.Fps = Math.Clamp(fps0 + 22 * MathF.Sin(i / 7f) + (float)rng.NextDouble() * 14, 40, 165);
                 SensorHistory.Push(demo);
             }
-            demo.CpuTemp = cpu0; demo.GpuTemp = gpu0; demo.CpuLoad = load0; demo.GpuLoad = gl0;
+            demo.CpuTemp = cpu0; demo.GpuTemp = gpu0; demo.CpuLoad = load0; demo.GpuLoad = gl0; demo.Fps = fps0;
             ThemeRenderer.Render(dtheme, Library.Demo, ds, dtheme.Width, dtheme.Height).Dispose();
             Thread.Sleep(700);
             using var dimg = ThemeRenderer.Render(dtheme, Library.Demo, ds, dtheme.Width, dtheme.Height);
@@ -188,6 +189,7 @@ static class Program
             {
                 $"volume raw: {tsnap.VolumePercent} muted: {tsnap.VolumeMuted}",
                 "volume tokens: " + Ex("{volume} | {volume.muted} | {volume.state}"),
+                "fps tokens: " + Ex("{fps} | {fps.low1} | {fps.frametime} | {fps.game}"),
                 "net tokens: " + Ex("down {net.downtext} / up {net.uptext} | {net.down:0.0} Mbps / {net.up:0.0} Mbps"),
             });
             return 0;
@@ -230,6 +232,26 @@ static class Program
         {
             ThemeStore.Save(NeonTheme.Create());
             foreach (var extra in ExtraThemes.All()) ThemeStore.Save(extra);
+            return 0;
+        }
+
+        // --icon-preview <out.png>: the app icon at 256, 64, 32 and 16 px side by side.
+        int ip = Array.IndexOf(args, "--icon-preview");
+        if (ip >= 0 && ip + 1 < args.Length)
+        {
+            using var sheet = new Bitmap(520, 280);
+            using (var g = Graphics.FromImage(sheet))
+            {
+                g.Clear(Color.FromArgb(255, 30, 30, 36));
+                int x = 10;
+                foreach (int size in new[] { 256, 64, 32, 16 })
+                {
+                    using var icon = HurricaneBeastPanel.Ui.AppIcon.Render(size);
+                    g.DrawImageUnscaled(icon, x, 10);
+                    x += size + 14;
+                }
+            }
+            sheet.Save(args[ip + 1], System.Drawing.Imaging.ImageFormat.Png);
             return 0;
         }
 

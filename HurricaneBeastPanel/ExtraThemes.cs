@@ -82,7 +82,7 @@ static class Kit
 /// <summary>Built-in themes modelled on dashboards the user liked. Each is made only from editor elements.</summary>
 public static class ExtraThemes
 {
-    public static readonly string[] Keys = { "tile", "cards", "compact", "smoky", "cardsh", "compacth", "rainbow", "rainbowh", "rainbowl", "rainbowhl" };
+    public static readonly string[] Keys = { "tile", "cards", "compact", "smoky", "cardsh", "compacth", "rainbow", "rainbowh", "rainbowl", "rainbowhl", "gamefps" };
 
     /// <summary>
     /// Re-flows a vertical theme into columns on a 1920x462 canvas. Each slice is (y from, y to, x from, x to) of the
@@ -151,8 +151,25 @@ public static class ExtraThemes
             (1092, 1292, 0, 999, 3, 236));     // VRAM
     }
 
+    /// <summary>Gaming dashboard (1920x462): the Game FPS card and a clock, then GPU, CPU and memory cards.</summary>
+    public static Theme GameFps()
+    {
+        const string Card = "#FF181C28", Dim = "#FF8C97AC";
+        var t = new Theme { Name = "Game FPS", Width = 1920, Height = 462, Background = Kit.Grad("#FF0B0D14", "#FF161B2C", 90) };
+        t.Elements.AddRange(Library.GameFpsBlock(16, 16));
+        t.Elements.Add(Theme.RectEl("Status plate", 16, 332, 440, 114, FillSpec.Solid(Card), 26));
+        t.Elements.Add(Theme.TextEl("Time", "{time}", 36, 336, 250, 106, 80, true));
+        t.Elements.Add(Theme.TextEl("Date", "{date:ddd, MMM d}", 276, 350, 164, 30, 20, color: Dim, align: HAlign.Right));
+        t.Elements.Add(Theme.TextEl("Vram", "VRAM {gpu.vram:0.0} / {gpu.vramtotal:0.0} GB", 236, 392, 204, 30, 18, true, align: HAlign.Right));
+        Theme.AddCard(t, 472, 16, 450, "GPU", "#FFFF825A", "{gpu.name}", "{gpu.temp}{unit}", "{gpu.load} %", Theme.GpuRows);
+        Theme.AddCard(t, 938, 16, 450, "CPU", "#FF5AAAFF", "{cpu.name}", "{cpu.temp}{unit}", "{cpu.load} %", Theme.CpuRows);
+        Theme.AddCard(t, 1404, 16, 500, "MEMORY", "#FFAF87FF", "", "{ram.load} %", "{ram.load} %", Theme.MemRows);
+        return t;
+    }
+
     public static Theme ByKey(string key) => key switch
     {
+        "gamefps" => GameFps(),
         "rainbow" => RainbowThemes.Build(false, true),
         "rainbowh" => RainbowThemes.Build(true, true),
         "rainbowl" => RainbowThemes.Build(false, false),

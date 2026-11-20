@@ -56,6 +56,7 @@ public static class Library
         MoboTemp = 38, PchTemp = 44, GpuHotspot = 72, GpuVoltage = 0.95f, CpuVoltage = 1.12f, GpuMemClockMhz = 1750, NetSentGb = 18.4f, NetRecvGb = 212.9f,
         BoardName = "Example Z790 Board", BiosVersion = "F17a", RamType = "DDR5", RamSpeedMts = 5600, NetIp = "192.168.1.20", NetName = "Ethernet",
         DisplayRes = "3840 x 2160", DisplayHz = 60, ProcessCount = 214,
+        Fps = 144, FpsLow1 = 98, FrameTimeMs = 6.9f, FpsGame = "Game",
         Drives =
         {
             new DriveSnap { Letter = 'C', Label = "", TotalGb = 139, UsedGb = 96 },
@@ -167,6 +168,30 @@ public static class Library
 
     // ---------- monitor blocks ----------
 
+    /// <summary>
+    /// Game FPS card (440 x 300): big frame rate, 1% low, frame time, program name and a history graph.
+    /// Shows "--" while no game is running. Needs the app to run as administrator.
+    /// </summary>
+    public static List<Element> GameFpsBlock(float x, float y)
+    {
+        const string Green = "#FF2BF28A";
+        var graph = Element.CreateWidget(WidgetStyle.GradientFill, 1, 392, 90);
+        graph.Name = "FPS graph"; graph.X = x + 24; graph.Y = y + 196; graph.Width = 392; graph.Height = 84;
+        graph.Bind = "fps"; graph.BindMin = 0; graph.BindMax = 165; graph.Fill = FillSpec.Solid(Green);
+        return new List<Element>
+        {
+            Theme.RectEl("FPS plate", x, y, 440, 300, FillSpec.Solid("#FF181C28"), 26),
+            Theme.TextEl("FPS title", "FPS", x + 24, y + 14, 120, 44, 32, true, Green),
+            Theme.TextEl("FPS game", "{fps.game}", x + 140, y + 20, 276, 34, 22, color: Dim, align: HAlign.Right),
+            Theme.TextEl("FPS value", "{fps}", x + 20, y + 52, 240, 130, 110, true),
+            Theme.TextEl("FPS low label", "1% low", x + 264, y + 70, 152, 28, 20, color: Dim, align: HAlign.Right),
+            Theme.TextEl("FPS low value", "{fps.low1}", x + 264, y + 96, 152, 44, 38, true, align: HAlign.Right),
+            Theme.TextEl("FPS time label", "Frame time", x + 264, y + 140, 152, 28, 20, color: Dim, align: HAlign.Right),
+            Theme.TextEl("FPS time value", "{fps.frametime} ms", x + 220, y + 164, 196, 30, 24, true, align: HAlign.Right),
+            graph,
+        };
+    }
+
     static List<LibraryItem> MonitorItems()
     {
         LibraryItem Card(string name, string title, string accent, string nameToken, string temp, string load, (string, string)[] rows) => new()
@@ -228,6 +253,13 @@ public static class Library
             GraphCard("GPU load graph", "GPU", "#FFFF825A", "gpu.load", "{gpu.load}%"),
             GraphCard("Network graph", "DOWNLOAD", "#FF2BF28A", "net.down", "{net.down:0.0} Mbps"),
             GraphCard("Upload graph", "UPLOAD", "#FFFF825A", "net.up", "{net.up:0.0} Mbps"),
+            new LibraryItem
+            {
+                Name = "Game FPS", Width = 440, Height = 300,
+                Build = () => GameFpsBlock(0, 0),
+            },
+            GraphCard("FPS graph", "FPS", "#FF2BF28A", "fps", "{fps} fps"),
+            Ring("FPS ring", "FPS", "fps", "{fps}", "#FF2BF28A", 0, 240),
             Ring("Volume ring", "VOLUME", "volume", "{volume}%", "#FF46DCDC"),
             new LibraryItem
             {

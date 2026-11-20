@@ -28,7 +28,7 @@ A Windows app that replaces HT PLAYER for Hurricane Beast USB sensor screens (US
 |---|---|
 | ![Neon Dashboard](docs/screenshots/theme-neon.png) | ![Tile Dashboard](docs/screenshots/theme-tile.png) |
 | ![Smoky Bar](docs/screenshots/theme-smoky.png) | ![Cards Horizontal](docs/screenshots/theme-cards-horizontal.png) |
-| ![Rainbow Light Horizontal](docs/screenshots/theme-rainbow-light-horizontal.png) | |
+| ![Rainbow Light Horizontal](docs/screenshots/theme-rainbow-light-horizontal.png) | ![Game FPS](docs/screenshots/theme-game-fps.png) |
 
 Vertical themes for portrait mounting:
 
@@ -37,12 +37,12 @@ Vertical themes for portrait mounting:
 *The pictures above use sample sensor values.*
 
 ## Features
-- Live CPU, GPU, RAM, VRAM, fan, network and drive sensors (LibreHardwareMonitor). Drives are listed with their real letters and names. Upload and download speed (Mbps, MB/s, or text with its own unit), and the Windows volume and mute state.
+- Live CPU, GPU, RAM, VRAM, fan, network and drive sensors (LibreHardwareMonitor). Drives are listed with their real letters and names. Upload and download speed (Mbps, MB/s, or text with its own unit), the Windows volume and mute state, and the frame rate of the game in front (FPS, 1% low, frame time; needs administrator rights, no extra program).
 - Theme editor: text, shapes, glow, charts, gauges, graphs, meters, date/time formats, images, GIFs and MP4 (also as backgrounds), undo/redo, layers, rotation, and a design-time grid with snapping.
 - Gradients with up to 10 colors (linear or circular), solid colors, and a wheel color picker with an eyedropper.
 - Weather element: sun, moon, clouds, rain, snow, storm and fog pictures that follow the real weather (Open-Meteo), plus `{weather.*}` tokens. Set the city on the Settings page; empty means detect it from the internet connection.
 - Horizontal (1920x462) and vertical (462x1920) themes.
-- Built-in themes: Default, Neon Dashboard, Tile, Cards, Compact, Smoky and Rainbow (dark and light, horizontal and vertical variants).
+- Built-in themes: Default, Neon Dashboard, Tile, Cards, Compact, Smoky, Game FPS and Rainbow (dark and light, horizontal and vertical variants).
 - Custom fonts: drop `.ttf` or `.otf` files into `%AppData%\HurricaneBeastPanel\fonts`.
 - Tray app, autostart, brightness, frame rate, and a Restart screen button.
 

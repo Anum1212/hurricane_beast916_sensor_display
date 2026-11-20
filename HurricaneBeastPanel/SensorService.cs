@@ -25,6 +25,9 @@ public sealed class SensorSnapshot
     /// <summary>Windows master volume of the default playback device, 0-100, and whether it is muted.</summary>
     public float? VolumePercent;
     public bool? VolumeMuted;
+    /// <summary>Frame rate of the game in front (needs administrator rights): frames per second, 1% low, frame time and program name.</summary>
+    public float? Fps, FpsLow1, FrameTimeMs;
+    public string FpsGame = "";
 }
 
 public sealed class DriveSnap
@@ -40,6 +43,7 @@ public sealed class DriveSnap
 public sealed class SensorService : IDisposable
 {
     readonly Computer _pc;
+    readonly FpsService _fps = new();
 
     public string? OpenError { get; }
 
@@ -260,6 +264,11 @@ public sealed class SensorService : IDisposable
         s.Drives = ReadDrives();
         s.Weather = WeatherService.Current;
         AudioVolume.Read(s);
+        var fps = _fps.Read();
+        if (fps != null)
+        {
+            s.Fps = fps.Fps; s.FpsLow1 = fps.Low1Fps; s.FrameTimeMs = fps.FrameTimeMs; s.FpsGame = fps.Game;
+        }
 
         // Use the busiest adapter so VPN/virtual adapters are not double counted.
         foreach (var nic in all.Where(h => h.HardwareType == HardwareType.Network))
@@ -280,6 +289,7 @@ public sealed class SensorService : IDisposable
 
     public void Dispose()
     {
+        _fps.Dispose();
         try { _pc.Close(); } catch { }
     }
 }

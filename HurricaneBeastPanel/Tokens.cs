@@ -95,6 +95,10 @@ public static class Tokens
         new("net.recvgb", "Total downloaded GB", true, "0.0"),
         new("net.uptext", "Upload speed with its own unit (850 KB/s, 1.2 MB/s)", false),
         new("net.downtext", "Download speed with its own unit (850 KB/s, 1.2 MB/s)", false),
+        new("fps", "Game FPS (frames per second of the game in front)", true),
+        new("fps.low1", "Game FPS, 1% low", true),
+        new("fps.frametime", "Game frame time ms", true, "0.0"),
+        new("fps.game", "Game FPS: program name", false),
         new("volume", "Windows volume %", true),
         new("volume.muted", "Windows volume muted (1 = muted, 0 = sound on)", true),
         new("volume.state", "Windows volume text (45%, or Muted)", false),
@@ -204,6 +208,7 @@ public static class Tokens
             case "mobo.name": return s.BoardName.Length > 0 ? s.BoardName : "--";
             case "bios.version": return s.BiosVersion.Length > 0 ? s.BiosVersion : "--";
             case "ram.type": return s.RamType.Length > 0 ? s.RamType : "--";
+            case "fps.game": return s.FpsGame.Length > 0 ? s.FpsGame : "--";
             case "net.uptext": return Rate(s.NetUpBps);
             case "net.downtext": return Rate(s.NetDownBps);
             case "volume.state": return s.VolumeMuted == true ? "Muted" : s.VolumePercent.HasValue ? $"{s.VolumePercent.Value:0}%" : "--";
@@ -293,6 +298,9 @@ public static class Tokens
         "ram.speed" => s.RamSpeedMts > 0 ? s.RamSpeedMts : null,
         "ram.clock" => s.RamSpeedMts > 0 ? s.RamSpeedMts / 2f : null,
         var k when k.StartsWith("drive.") => DriveNumber(k, s),
+        "fps" => s.Fps,
+        "fps.low1" => s.FpsLow1,
+        "fps.frametime" => s.FrameTimeMs,
         "volume" => s.VolumePercent,
         "volume.muted" => s.VolumeMuted.HasValue ? (s.VolumeMuted.Value ? 1f : 0f) : null,
         "weather.temp" => Finite(s.Weather?.TempC),

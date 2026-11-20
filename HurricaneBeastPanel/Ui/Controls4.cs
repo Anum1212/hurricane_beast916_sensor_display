@@ -154,7 +154,18 @@ public static class AppIcon
             g.DrawLine(needle, s * 0.5f, s * 0.5f, s * 0.68f, s * 0.36f);
         using var hub = new SolidBrush(Color.White);
         g.FillEllipse(hub, s * 0.455f, s * 0.455f, s * 0.09f, s * 0.09f);
-        return bmp;
+
+        // Corner badge with an "H" for Hurricane Beast (same style as the sibling apps that share this gauge).
+        var badge = new RectangleF(s * 0.085f, s * 0.635f, s * 0.29f, s * 0.29f);
+        using (var badgeBrush = new SolidBrush(Color.FromArgb(255, 44, 30, 140)))
+            g.FillEllipse(badgeBrush, badge);
+        using (var ring = new Pen(Color.White, Math.Max(1f, s * 0.02f)))
+            g.DrawEllipse(ring, badge);
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+        using var font = new Font("Segoe UI", s * 0.17f, FontStyle.Bold, GraphicsUnit.Pixel);
+        using var fmt = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+        var textBox = new RectangleF(badge.X, badge.Y + s * 0.005f, badge.Width, badge.Height);
+        g.DrawString("H", font, Brushes.White, textBox, fmt);        return bmp;
     }
 
     static Icon? _cached;
@@ -170,18 +181,30 @@ public static class AppIcon
         return _cached;
     }
 
-    /// <summary>Writes a Windows .ico (256 px PNG inside) for the exe icon.</summary>
+    /// <summary>Writes a Windows .ico with several sizes (each drawn at its own size, PNG inside) for the exe icon.</summary>
     public static void WriteIco(string path)
     {
-        using var bmp = Render(256);
-        using var png = new MemoryStream();
-        bmp.Save(png, ImageFormat.Png);
+        int[] sizes = { 16, 24, 32, 48, 64, 128, 256 };
+        var images = new List<byte[]>();
+        foreach (int size in sizes)
+        {
+            using var bmp = Render(size);
+            using var png = new MemoryStream();
+            bmp.Save(png, ImageFormat.Png);
+            images.Add(png.ToArray());
+        }
         using var fs = File.Create(path);
         using var w = new BinaryWriter(fs);
-        w.Write((short)0); w.Write((short)1); w.Write((short)1);       // ICONDIR: reserved, type icon, 1 image
-        w.Write((byte)0); w.Write((byte)0); w.Write((byte)0); w.Write((byte)0); // 256x256, no palette
-        w.Write((short)1); w.Write((short)32);                          // planes, bits
-        w.Write((int)png.Length); w.Write(22);                          // size, offset
-        w.Write(png.ToArray());
+        w.Write((short)0); w.Write((short)1); w.Write((short)sizes.Length);     // ICONDIR: reserved, type icon, image count
+        int offset = 6 + 16 * sizes.Length;
+        for (int i = 0; i < sizes.Length; i++)
+        {
+            byte dim = sizes[i] >= 256 ? (byte)0 : (byte)sizes[i];              // 0 means 256
+            w.Write(dim); w.Write(dim); w.Write((byte)0); w.Write((byte)0);
+            w.Write((short)1); w.Write((short)32);                              // planes, bits
+            w.Write(images[i].Length); w.Write(offset);
+            offset += images[i].Length;
+        }
+        foreach (var data in images) w.Write(data);
     }
 }
