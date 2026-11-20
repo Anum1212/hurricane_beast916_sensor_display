@@ -1,0 +1,62 @@
+﻿name: Build installer and portable zip
+
+# Push a tag like v1.0.0 to build the installer and the portable zip and attach both to a GitHub release.
+# "Run workflow" (manual) builds them and keeps them as downloadable build artifacts only.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to create the release
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Work out the version
+        id: ver
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq 'tag') { $v = $env:GITHUB_REF_NAME.TrimStart('v') } else { $v = '0.0.0-dev' }
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      # Inno Setup 6 is preinstalled on windows-latest; install it if a future image drops it.
+      - name: Make sure Inno Setup is available
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
+
+      # Publishes the self-contained app into release/publish and wraps it in the installer.
+      - name: Build the installer
+        shell: pwsh
+        run: ./installer/build-installer.ps1 -Version "${{ steps.ver.outputs.version }}"
+
+      # The same published folder, zipped: unzip and run, nothing to install.
+      - name: Make the portable zip
+        shell: pwsh
+        run: |
+          $zip = "release/HurricaneBeastPanel-v${{ steps.ver.outputs.version }}-win-x64-portable.zip"
+          Compress-Archive -Path "release/publish/*" -DestinationPath $zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HurricaneBeastPanel-${{ steps.ver.outputs.version }}
+          path: |
+            release/HurricaneBeastPanel-Setup-*.exe
+            release/HurricaneBeastPanel-v*-portable.zip
+
+      - name: Publish the release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/HurricaneBeastPanel-Setup-*.exe
+            release/HurricaneBeastPanel-v*-portable.zip
+          generate_release_notes: true

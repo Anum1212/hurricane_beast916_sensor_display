@@ -56,6 +56,17 @@ dotnet build -c Release -o bin\dev
 
 CPU temperature and power need administrator rights, so the app asks for elevation on start. They also need the free [PawnIO](https://pawnio.eu) driver, which the sensor library uses to read the CPU; the app offers to install it (Settings page), or install it once yourself and restart the app.
 
+## Making a release (maintainers)
+
+GitHub builds the downloads for you. The workflow in `.github/workflows/release.yml` builds the installer and the portable zip and attaches both to a release. All you do is push a version tag:
+
+```
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+A few minutes later the **Releases** page has `HurricaneBeastPanel-Setup-1.0.0.exe` and `HurricaneBeastPanel-v1.0.0-win-x64-portable.zip`, with release notes generated from the commits. The version number comes from the tag. A manual run of the workflow (Actions tab, "Run workflow") builds both files as downloadable artifacts without making a release.
+
 ## Installer
 `installer\build-installer.ps1` publishes the app and builds `release\HurricaneBeastPanel-Setup-<version>.exe` with [Inno Setup 6](https://jrsoftware.org/isinfo.php). The installer checks for the PawnIO driver and offers to install it (winget), open pawnio.eu, or skip it.
 
