@@ -1,11 +1,17 @@
-﻿name: Build installer and portable zip
+name: Build installer and portable zip
 
-# Push a tag like v1.0.0 to build the installer and the portable zip and attach both to a GitHub release.
-# "Run workflow" (manual) builds them and keeps them as downloadable build artifacts only.
+# Push a tag like v1.0.0 (or 1.0.0) to build the installer and the portable zip and attach both to a GitHub release.
+# "Run workflow" (manual) builds them and keeps them as downloadable build artifacts. If you type an existing tag into
+# the "tag" box, the files are also attached to that tag's release (for a release that was made without a build).
 on:
   push:
-    tags: ['v*']
+    tags: ['v*', '[0-9]*']
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to attach the files to (leave empty to only keep them as build artifacts)'
+        required: false
+        default: ''
 
 permissions:
   contents: write   # needed to create the release
@@ -15,6 +21,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -24,7 +32,8 @@ jobs:
         id: ver
         shell: pwsh
         run: |
-          if ($env:GITHUB_REF_TYPE -eq 'tag') { $v = $env:GITHUB_REF_NAME.TrimStart('v') } else { $v = '0.0.0-dev' }
+          $tag = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME } else { '${{ inputs.tag }}' }
+          if ($tag) { $v = $tag.TrimStart('v') } else { $v = '0.0.0-dev' }
           "version=$v" >> $env:GITHUB_OUTPUT
 
       # Inno Setup 6 is preinstalled on windows-latest; install it if a future image drops it.
@@ -53,9 +62,10 @@ jobs:
             release/HurricaneBeastPanel-v*-portable.zip
 
       - name: Publish the release
-        if: github.ref_type == 'tag'
+        if: github.ref_type == 'tag' || inputs.tag != ''
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || inputs.tag }}
           files: |
             release/HurricaneBeastPanel-Setup-*.exe
             release/HurricaneBeastPanel-v*-portable.zip

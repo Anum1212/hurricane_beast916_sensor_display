@@ -65,7 +65,7 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-A few minutes later the **Releases** page has `HurricaneBeastPanel-Setup-1.0.0.exe` and `HurricaneBeastPanel-v1.0.0-win-x64-portable.zip`, with release notes generated from the commits. The version number comes from the tag. A manual run of the workflow (Actions tab, "Run workflow") builds both files as downloadable artifacts without making a release.
+A few minutes later the **Releases** page has `HurricaneBeastPanel-Setup-1.0.0.exe` and `HurricaneBeastPanel-v1.0.0-win-x64-portable.zip`, with release notes generated from the commits. The version number comes from the tag. Tags with or without the leading `v` both work (`v1.0.0` or `1.0.0`). A manual run of the workflow (Actions tab, "Run workflow") builds both files as downloadable artifacts; if you type an existing tag into the "tag" box (for example a release you made by hand on the website), the files are attached to that release too.
 
 ## Installer
 `installer\build-installer.ps1` publishes the app and builds `release\HurricaneBeastPanel-Setup-<version>.exe` with [Inno Setup 6](https://jrsoftware.org/isinfo.php). The installer checks for the PawnIO driver and offers to install it (winget), open pawnio.eu, or skip it.
